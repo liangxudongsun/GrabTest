@@ -1,0 +1,11 @@
+{
+  "__version__": "1.0.12",
+  "modules": {
+    "graphics": {
+      "pipeline": "custom-pipeline"
+    }
+  },
+  "macroConfig": {
+    "CUSTOM_PIPELINE_NAME": ""
+  }
+}

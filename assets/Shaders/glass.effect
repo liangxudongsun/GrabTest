@@ -1,0 +1,163 @@
+// glass.effect
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: glass-vs:vert
+      frag: glass-fs:frag
+      phase: grab-caster
+      depthStencilState:
+        depthTest: true
+        depthWrite: true
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+      rasterizerState:
+        cullMode: back
+      properties:
+        mainTexture:    { value: white }
+        bumpMap:        { value: grey }
+        envCubeMap:     { value: white }
+        distortion:     { value: 10.0, editor: { range: [0.0, 100.0] } }
+        refractAmount:  { value: 0.6, editor: { range: [0.0, 1.0] } }
+        glossiness:     { value: 0.5, editor: { range: [0.0, 1.0] } }
+        fresnelPower:   { value: 2.0, editor: { range: [0.5, 8.0] } }
+   
+}%
+
+CCProgram glass-vs %{
+  precision highp float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <legacy/decode-base>
+  #include <legacy/local-batch>
+
+  out vec2 v_uv;
+  out vec2 v_uv_bump;
+  out vec4 v_scrPos;
+  out vec3 v_TtoW0;
+  out vec3 v_TtoW1;
+  out vec3 v_TtoW2;
+  out vec3 v_worldPos;
+
+  vec4 vert() {
+    vec4 position;
+    CCVertInput(position);
+
+    mat4 matWorld;
+    CCGetWorldMatrix(matWorld);
+
+    vec4 worldPos = matWorld * position;
+    v_worldPos = worldPos.xyz;
+
+    vec4 clipPos = cc_matProj * (cc_matView * worldPos);
+    v_scrPos = clipPos;
+    v_uv = a_texCoord;
+    v_uv_bump = a_texCoord;
+
+    vec3 worldNormal = normalize((cc_matWorldIT * vec4(a_normal, 0.0)).xyz);
+    vec3 worldTangent = normalize((matWorld * vec4(a_tangent.xyz, 0.0)).xyz);
+    vec3 worldBinormal = cross(worldNormal, worldTangent) * a_tangent.w;
+
+    v_TtoW0 = vec3(worldTangent.x, worldBinormal.x, worldNormal.x);
+    v_TtoW1 = vec3(worldTangent.y, worldBinormal.y, worldNormal.y);
+    v_TtoW2 = vec3(worldTangent.z, worldBinormal.z, worldNormal.z);
+
+    return clipPos;
+  }
+}%
+
+
+
+
+CCProgram glass-fs %{
+  precision highp float;
+  #include <legacy/output-standard>
+  #include <builtin/uniforms/cc-global>
+
+  uniform CustomUniforms {
+    float distortion;
+    float refractAmount;
+    // 新增：光泽度 / 折射色彩增强强度
+    float glossiness;     // 范围 0~1，控制高光强度和色彩增强
+    float fresnelPower;   // 菲涅尔指数，控制边缘光范围
+  };
+
+  uniform sampler2D mainTexture;
+  uniform sampler2D bumpMap;
+  uniform samplerCube envCubeMap;
+  #pragma rate grabTex pass
+  uniform sampler2D grabTex;
+
+  in vec2 v_uv;
+  in vec2 v_uv_bump;
+  in vec4 v_scrPos;
+  in vec3 v_TtoW0;
+  in vec3 v_TtoW1;
+  in vec3 v_TtoW2;
+  in vec3 v_worldPos;
+
+  // 辅助函数：增强颜色饱和度与亮度（使折射更“晶莹”）
+  vec3 enhanceColor(vec3 color, float amount) {
+    // 亮度系数 (Rec.709)
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    vec3 saturated = mix(vec3(luma), color, 1.0 + amount * 0.5);
+    // 同时略微提高整体亮度
+    return mix(saturated, saturated * 1.2, amount);
+  }
+
+  vec4 frag() {
+    // 正确的 UV 转换：NDC -> [0,1]
+    vec2 screenUV = (v_scrPos.xy / v_scrPos.w) * 0.5 + 0.5;
+    #if CC_EDITOR
+      screenUV.y = 1.0 - screenUV.y;
+    #endif
+
+    // 采样法线贴图并解码
+    vec4 bumpTex = texture(bumpMap, v_uv_bump);
+    vec3 bump = bumpTex.xyz * 2.0 - 1.0;
+
+    // 屏幕 UV 扰动
+    vec2 screenTexelSize = 1.0 / cc_nativeSize.xy;
+    vec2 offset = bump.xy * distortion * screenTexelSize;
+    vec2 finalUV = screenUV + offset;
+
+    // 折射采样（背景颜色，可能是物体或天空盒）
+    vec3 refrColor = texture(grabTex, finalUV).rgb;
+
+    // ----- 核心增强：让任何背景都变得晶莹剔透 -----
+    // 1. 色彩增强：提高饱和度与亮度（glossiness 控制强度）
+    refrColor = enhanceColor(refrColor, glossiness);
+
+    // 2. 切线空间法线转换到世界空间
+    vec3 worldNormal = normalize(vec3(
+      dot(v_TtoW0, bump),
+      dot(v_TtoW1, bump),
+      dot(v_TtoW2, bump)
+    ));
+
+    // 视角方向
+    vec3 worldViewDir = normalize(cc_cameraPos.xyz - v_worldPos);
+    vec3 reflectDir = reflect(-worldViewDir, worldNormal);
+
+    // 反射颜色（基于环境立方体贴图）
+    vec4 mainTexColor = texture(mainTexture, v_uv);
+    vec3 reflectColor = texture(envCubeMap, reflectDir).rgb * mainTexColor.rgb;
+
+    // 3. 菲涅尔效应：边缘更亮，增加通透感
+    float fresnel = pow(1.0 - abs(dot(worldNormal, worldViewDir)), fresnelPower);
+    // 菲涅尔叠加到折射颜色上（模拟边缘光）
+    vec3 fresnelGlow = vec3(0.8, 0.9, 1.0) * fresnel * glossiness;
+    refrColor += fresnelGlow;
+
+    // 4. 混合折射与反射（原始混合方式）
+    vec3 finalColor = mix(reflectColor, refrColor, refractAmount);
+
+    // 可选：根据菲涅尔微调最终透明度（如果需要半透玻璃效果，可启用 alpha）
+    float alpha = 1.0;
+    return CCFragOutput(vec4(finalColor, alpha));
+  }
+}%

@@ -1,0 +1,55 @@
+// Copyright (c) 2017-2023 Xiamen Yaji Software Co., Ltd.
+CCEffect %{
+techniques:
+  - passes:
+      - vert: combineGrab-vs
+        frag: combineGrab-fs
+        pass: combineGrab
+        depthStencilState:
+          depthTest: false
+          depthWrite: false
+}%
+
+
+CCProgram combineGrab-vs %{
+#include <./chunks/vs1>
+}%
+
+CCProgram combineGrab-fs %{
+precision highp float;
+
+layout(location = 0)out vec4 fragColor;
+#pragma rate screenTex pass
+uniform sampler2D screenTex;
+
+#pragma rate grabTex pass
+uniform sampler2D grabTex;
+
+in vec2 v_uv;
+void main() {
+    // 采样玻璃本身的颜色和透明度（来自 Framebuffer 1 的渲染结果）
+    vec4 glassColor = texture(screenTex, v_uv);
+
+    // 默认直接采样屏幕纹理对应 UV，无折射
+    vec2 screenUV = v_uv;
+
+    // ----- 可选：折射扰动（若玻璃材质提供了法线贴图，可在此偏移 UV）-----
+    // vec3 normal = texture(normalMap, v_uv).rgb * 2.0 - 1.0;
+    // float refractionStrength = 0.02;
+    // screenUV = v_uv + normal.xy * refractionStrength;
+    // --------------------------------------------------------------------
+
+    // 采样屏幕背景颜色
+    vec4 backgroundColor = texture(grabTex, v_uv);
+
+    // 根据玻璃的 alpha 进行线性混合（标准透明度混合）
+    // 若希望玻璃颜色更亮，可使用 additive 等混合模式，此处以最常见的透明度混合为例
+    vec3 blended = mix(backgroundColor.rgb, glassColor.rgb, glassColor.a);
+
+    // 输出最终颜色，alpha 保持为 1.0（因为屏幕输出不需要半透明，或根据需求调整）
+    fragColor = vec4(blended, 1.0);
+}
+}%
+
+
+
