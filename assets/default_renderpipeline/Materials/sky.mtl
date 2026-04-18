@@ -14,7 +14,7 @@
   ],
   "_states": [
     {
-      "priority": 200,
+      "priority": 1,
       "rasterizerState": {},
       "depthStencilState": {
         "stencilFuncFront": 1,

@@ -476,4 +476,118 @@ export class BuiltinPipelineSettings extends Component {
     get grabEnable(): boolean {
         return this._settings.grab.enable;
     }
+
+    // Frosted Glass
+    @property({
+        group: { id: 'FrostedGlass', name: 'Frosted Glass (PostProcessing)', style: 'section' },
+        type: CCBoolean,
+    })
+    set frostedGlassEnable(value: boolean) {
+        this._settings.frostedGlass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get frostedGlassEnable(): boolean {
+        return this._settings.frostedGlass.enabled;
+    }
+
+    @property({
+        tooltip: '高斯模糊材质（需包含水平+垂直两个pass）',
+        group: { id: 'FrostedGlass', name: 'Frosted Glass (PostProcessing)', style: 'section' },
+        type: Material,
+    })
+    set frostedGlassBlurMaterial(value: Material) {
+        if (this._settings.frostedGlass.blurMaterial === value) {
+            return;
+        }
+        this._settings.frostedGlass.blurMaterial = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get frostedGlassBlurMaterial(): Material {
+        return this._settings.frostedGlass.blurMaterial!;
+    }
+
+    @property({
+        tooltip: '模糊迭代次数（每次=1水平+1垂直），次数越多越模糊',
+        group: { id: 'FrostedGlass', name: 'Frosted Glass (PostProcessing)', style: 'section' },
+        type: CCInteger,
+        range: [1, 6, 1],
+        slide: true,
+    })
+    set frostedGlassBlurIterations(value: number) {
+        this._settings.frostedGlass.blurIterations = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get frostedGlassBlurIterations(): number {
+        return this._settings.frostedGlass.blurIterations;
+    }
+
+    @property({
+        tooltip: '降采样倍数（2=半分辨率模糊，性能更好）',
+        group: { id: 'FrostedGlass', name: 'Frosted Glass (PostProcessing)', style: 'section' },
+        type: CCInteger,
+        range: [1, 4, 1],
+        slide: true,
+    })
+    set frostedGlassDownSample(value: number) {
+        this._settings.frostedGlass.downSample = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get frostedGlassDownSample(): number {
+        return this._settings.frostedGlass.downSample;
+    }
+
+    // BlurPass
+    @property({
+        group: { id: 'BlurPass', name: 'BlurPass', style: 'section' },
+        type: CCBoolean,
+    })
+    set blurPassEnable(value: boolean) {
+        this._settings.blurPass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get blurPassEnable(): boolean {
+        return this._settings.blurPass.enabled;
+    }
+
+    @property({
+        tooltip: '模糊强度',
+        group: { id: 'BlurPass', name: 'BlurPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 10.0, 0.1],
+        slide: true,
+    })
+    set blurPassAmount(value: number) {
+        this._settings.blurPass.blurAmount = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get blurPassAmount(): number {
+        return this._settings.blurPass.blurAmount;
+    }
+
+    @property({
+        tooltip: '降采样尺寸数组（长度4，值越大分辨率越低）',
+        group: { id: 'BlurPass', name: 'BlurPass', style: 'section' },
+        type: [CCInteger],
+    })
+    set blurPassSizes(value: number[]) {
+        this._settings.blurPass.sizes = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get blurPassSizes(): number[] {
+        return this._settings.blurPass.sizes;
+    }
 }

@@ -123,6 +123,7 @@ export class CombineGrabPass extends BuiltinPipelinePassBuilder
             return prevRenderPass;
         }
         --cameraConfigs.remainingPasses;
+        //ppl.setBuiltinCameraConstants
 
         assert(!!this.material);
         if (cameraConfigs.remainingPasses === 0) {
@@ -173,7 +174,9 @@ export class CombineGrabPass extends BuiltinPipelinePassBuilder
         combineGrabPass
             .addQueue(rendering.QueueHint.OPAQUE)
             .addCameraQuad(camera, material, 0); // addCameraQuad will set camera related UBOs
-        return combineGrabPass;
+        
+       
+            return combineGrabPass;
     }
 
     // Runtime members

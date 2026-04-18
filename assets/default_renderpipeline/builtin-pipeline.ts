@@ -158,6 +158,8 @@ export class CameraConfigs {
     enableStoreSceneDepth = true;
 
 
+
+
     
     
 }
@@ -413,6 +415,10 @@ export interface ForwardPassConfigs {
 
     enableGrab:boolean
 
+    enableFrostedGlass:boolean;
+    
+    enableBlurPass:boolean;
+
 }
 
 const glassConfigs={
@@ -477,8 +483,11 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
         //Grab
         cameraConfigs.enableGrab=cameraConfigs.settings.grab.enable;
-     
 
+        //FrostedGlass
+        cameraConfigs.enableFrostedGlass=cameraConfigs.settings.frostedGlass.enabled;
+        //QuadPass
+        cameraConfigs.enableBlurPass=cameraConfigs.settings.blurPass.enabled;
        
       
 
@@ -507,6 +516,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         //:
         if(cameraConfigs.enableGrab){
             ppl.addRenderTarget(`FrameMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED);
+           
             //ppl.addDepthStencil(`FrameDepthMap`,Format.DEPTH_STENCIL,width,height,ResourceResidency.PERSISTENT)
             // ppl.addRenderTarget(`Temp${id}`,Format.RGBA32F,size.x,size.y,rendering.ResourceResidency.PERSISTENT);
            
@@ -515,12 +525,29 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             // ppl.addRenderWindow(screenWindow.colorName,Format.RGBA32F,1920,1080,screenWindow,window.depthStencilName);
             // ppl.addTexture('test',gfx.TextureType.TEX2D,Format.RGBA32F,1920,1080,0,1920*1080,0,1,rendering.ResourceFlags.COLOR_ATTACHMENT,rendering.ResourceResidency.EXTERNAL);
         }
+        if(cameraConfigs.enableBlurPass){
 
+         
+
+
+           const sizes=cameraConfigs.settings.blurPass.sizes;
+            for(let i=0;i<sizes.length;i++){
+                   const blurWidth=width/sizes[i];
+                   const blurHeight=height/sizes[i];
+                   this._blurSizes.push(new Vec2(blurWidth,blurHeight));
+                  ppl.addRenderTarget(`TempBlurMap1${i}`,Format.RGBA32F,blurWidth,blurHeight,rendering.ResourceResidency.MANAGED);
+                  ppl.addRenderTarget(`BlurMap2${i}`,Format.RGBA32F,blurWidth,blurHeight,rendering.ResourceResidency.MANAGED);
+                 
+            }
+           
+            
+          
+        }
        
        
 
         
-
+      
 
         // MsaaRadiance
         if (cameraConfigs.enableMSAA) {
@@ -646,28 +673,22 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             !cameraConfigs.enableMSAA,
             cameraConfigs.enableStoreSceneDepth ? StoreOp.STORE : StoreOp.DISCARD);
 
-        
+        if(cameraConfigs.enableBlurPass){
+            if(!EDITOR){
+                this._addBlurPass(ppl,cameraConfigs,camera,context);
+            }
+        }
 
-      
-        
-
-        
-
-
-
-
-        
-         
-     
-
+        if(cameraConfigs.enableFrostedGlass){
+            if(!EDITOR){
+                this._addFrostedGlassPass(ppl,cameraConfigs,camera,context);
+            }
+        }
        
-
-    
-       
-       
+        //if(!EDITOR)this._addBlurStencilPass(ppl,camera,cameraConfigs.settings.frostedGlass.blurMaterial,0,0);
         if(cameraConfigs.enableGrab){
             if(!EDITOR){
-            this._addGrabPass(ppl,cameraConfigs,camera,context);
+              this._addGrabPass(ppl,cameraConfigs,camera,context);
             }
         } 
         
@@ -690,34 +711,93 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
     public test=false; 
 
+    
 
-    private _addBlurStencilPass(ppl: rendering.BasicPipeline,
-          camera:renderer.scene.Camera ,contex:PipelineContext ){
-        const id=camera.window.renderWindowId;
-        const size=new Vec2(camera.window.width,
-                            camera.window.height)
-        const pass=ppl.addRenderPass(size.x,size.y,'blurStencil');
 
-    }
-
-    private _addTempPass(ppl: rendering.BasicPipeline,
-          camera:renderer.scene.Camera ,contex:PipelineContext  ):rendering.BasicRenderPassBuilder|undefined{
+    private _addFrostedGlassPass(
+        ppl: rendering.BasicPipeline,
+        cameraConfigs:CameraConfigs,
+        camera:renderer.scene.Camera,
+        contex:PipelineContext  
+    ): rendering.BasicRenderPassBuilder {
         const id=camera.window.renderWindowId;
         const size=new Vec2(camera.window.width,
                             camera.window.height)
         const pass=ppl.addRenderPass(size.x,size.y,'default');
-        pass.name='TempPass';
-        pass.addRenderTarget('FrameMap',LoadOp.CLEAR,StoreOp.STORE,new Color(0,0,0,1));
-        pass.addDepthStencil('FrameDepthMap',LoadOp.CLEAR,StoreOp.STORE)
-        const viewport= new Viewport();;
+        pass.name='FrostedGlassPass';
+        pass.addRenderTarget(contex.colorName,LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
+        pass.addDepthStencil(contex.depthStencilName,LoadOp.LOAD,StoreOp.STORE)
+        pass.addTexture(`BlurMap20`, 'BlurMap20');
+        pass.addTexture(`BlurMap21`, 'BlurMap21');
+        pass.addTexture(`BlurMap22`, 'BlurMap22');
+        pass.addTexture(`BlurMap23`, 'BlurMap23');
+        const viewport=this._viewport;
         viewport.left=0;
         viewport.top=0;
         viewport.width=size.x;
         viewport.height=size.y;
         pass.setViewport(viewport);
-        pass.addQueue(rendering.QueueHint.NONE,'temp-caster')
-        .addScene(camera,rendering.SceneFlags.OPAQUE );
+        pass.addQueue(rendering.QueueHint.NONE,'frostedGlass-caster')
+        .addScene(camera,rendering.SceneFlags.OPAQUE);
         return pass;
+       
+
+
+       
+       
+    }
+
+    private _blurSizes:Vec2[]=[];
+
+    private _addBlurPass( ppl: rendering.BasicPipeline,
+          cameraConfigs:CameraConfigs,
+          camera:renderer.scene.Camera,
+          contex:PipelineContext 
+    ):rendering.BasicRenderPassBuilder|undefined{
+        const sizes=cameraConfigs.settings.blurPass.sizes;
+        const blurAmount=cameraConfigs.settings.blurPass.blurAmount;
+        for(let i=0;i<sizes.length;i++){
+            let size=sizes[i];
+            const width=camera.window.width/size;
+            const height=camera.window.height/size;
+            const viewport=this._viewport;
+            viewport.left=0;
+            viewport.top=0;
+            viewport.width=width;
+            viewport.height=height;
+            const pass1=ppl.addRenderPass(width,height,'default');
+            pass1.addRenderTarget(`TempBlurMap1${i}`,LoadOp.LOAD,StoreOp.STORE);
+            pass1.addTexture('FrameMap','inputTex');
+            pass1.setVec4('BlurAmount',new Vec4(blurAmount/this._blurSizes[i].x,0,0,0));
+            pass1.setViewport(viewport);
+            pass1.addQueue(rendering.QueueHint.NONE,'quad-caster')
+            .addScene(camera,rendering.SceneFlags.OPAQUE);
+
+            const pass2=ppl.addRenderPass(width,height,'default');
+            pass2.addRenderTarget(`BlurMap2${i}`,LoadOp.LOAD,StoreOp.STORE);
+            pass2.addTexture(`TempBlurMap1${i}`,'inputTex');
+            pass2.setVec4('BlurAmount',new Vec4(0,blurAmount/this._blurSizes[i].y,0,0));
+            pass2.setViewport(viewport);
+            pass2.addQueue(rendering.QueueHint.NONE,'quad-caster')
+            .addScene(camera,rendering.SceneFlags.OPAQUE);
+
+            const pass3=ppl.addRenderPass(width,height,'default');
+            pass3.addRenderTarget(`TempBlurMap1${i}`,LoadOp.LOAD,StoreOp.STORE);
+            pass3.addTexture(`BlurMap2${i}`,'inputTex');
+            pass3.setVec4('BlurAmount',new Vec4(blurAmount*2/this._blurSizes[i].x,0,0,0));
+            pass3.setViewport(viewport);
+            pass3.addQueue(rendering.QueueHint.NONE,'quad-caster')
+            .addScene(camera,rendering.SceneFlags.OPAQUE);
+
+            const pass4=ppl.addRenderPass(width,height,'default');
+            pass4.addRenderTarget(`BlurMap2${i}`,LoadOp.LOAD,StoreOp.STORE);
+            pass4.addTexture(`TempBlurMap1${i}`,'inputTex');
+            pass4.setVec4('BlurAmount',new Vec4(0,blurAmount*2/this._blurSizes[i].y,0,0));
+            pass4.setViewport(viewport);
+            pass4.addQueue(rendering.QueueHint.NONE,'quad-caster')
+            .addScene(camera,rendering.SceneFlags.OPAQUE);
+        }
+        return undefined;
     }
 
     private _addGrabPass( ppl: rendering.BasicPipeline,
@@ -1203,6 +1283,7 @@ export class BuiltinBloomPassBuilder implements rendering.PipelinePassBuilder {
     getRenderOrder(): number {
         return 200;
     }
+   
     configCamera(
         camera: Readonly<renderer.scene.Camera>,
         pipelineConfigs: Readonly<PipelineConfigs>,
@@ -1414,6 +1495,8 @@ export class BuiltinBloomPassBuilder implements rendering.PipelinePassBuilder {
         combinePass
             .addQueue(QueueHint.BLEND)
             .addFullscreenQuad(bloomMaterial, 3);
+
+       
 
         if (cameraConfigs.remainingPasses === 0) {
             return addCopyToScreenPass(ppl, pplConfigs, cameraConfigs, radianceName);

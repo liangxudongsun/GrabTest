@@ -284,6 +284,65 @@ export function fillRequiredGrab(value: Grab):void{
     }
 }
 
+export interface FrostedGlass {
+    enabled: boolean;
+    /* refcount */ blurMaterial: Material | null;
+    blurIterations: number;
+    downSample: number;
+    [name: string]: unknown;
+}
+
+export function makeFrostedGlass(): FrostedGlass {
+    return {
+        enabled: false,
+        blurMaterial: null,
+        blurIterations: 2,
+        downSample: 2,
+    };
+}
+
+export function fillRequiredFrostedGlass(value: FrostedGlass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+    if (value.blurMaterial === undefined) {
+        value.blurMaterial = null;
+    }
+    if (value.blurIterations === undefined) {
+        value.blurIterations = 2;
+    }
+    if (value.downSample === undefined) {
+        value.downSample = 2;
+    }
+}
+
+export interface BlurPass {
+    enabled: boolean;
+    blurAmount: number;
+    sizes: number[];
+    [name: string]: unknown;
+}
+
+export function makeBlurPass(): BlurPass {
+    return {
+        enabled: false,
+        blurAmount: 1.0,
+        sizes: [1, 2, 4, 8],
+    };
+}
+
+export function fillRequiredBlurPass(value: BlurPass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+    if (value.blurAmount === undefined) {
+        value.blurAmount = 1.0;
+    }
+    if (value.sizes === undefined) {
+        value.sizes = [1, 2, 4, 8];
+    }
+}
+
 export interface PipelineSettings {
     readonly msaa: MSAA;
     enableShadingScale: boolean; /* false */
@@ -294,6 +353,8 @@ export interface PipelineSettings {
     readonly fsr: FSR;
     readonly fxaa: FXAA;
     readonly grab: Grab;
+    readonly frostedGlass: FrostedGlass;
+    readonly blurPass: BlurPass;
     [name: string]: unknown;
 }
 
@@ -308,6 +369,8 @@ export function makePipelineSettings(): PipelineSettings {
         fsr: makeFSR(),
         fxaa: makeFXAA(),
         grab: makeGrab(),
+        frostedGlass: makeFrostedGlass(),
+        blurPass: makeBlurPass(),
     };
 }
 
@@ -353,5 +416,17 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         (value.grab as Grab)=makeGrab();
     }else{
         fillRequiredGrab(value.grab);
+    }
+
+    if (!value.frostedGlass) {
+        (value.frostedGlass as FrostedGlass) = makeFrostedGlass();
+    } else {
+        fillRequiredFrostedGlass(value.frostedGlass);
+    }
+
+    if (!value.blurPass) {
+        (value.blurPass as BlurPass) = makeBlurPass();
+    } else {
+        fillRequiredBlurPass(value.blurPass);
     }
 }
