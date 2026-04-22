@@ -4,19 +4,19 @@
     "customSplash": {
       "id": "customSplash",
       "label": "customSplash",
-      "enable": false,
+      "enable": true,
       "customSplash": {
         "complete": false,
-        "form": "https://creator-api.cocos.com/api/form/show?"
+        "form": "https://creator-api.cocos.com/api/form/show?sid=1b4ec6dd4a0bee854282a2fe9300a75f"
       }
     },
     "removeSplash": {
       "id": "removeSplash",
       "label": "removeSplash",
-      "enable": false,
+      "enable": true,
       "removeSplash": {
         "complete": false,
-        "form": "https://creator-api.cocos.com/api/form/show?"
+        "form": "https://creator-api.cocos.com/api/form/show?sid=1b4ec6dd4a0bee854282a2fe9300a75f"
       }
     }
   }

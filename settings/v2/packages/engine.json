@@ -6,6 +6,7 @@
     }
   },
   "macroConfig": {
-    "CUSTOM_PIPELINE_NAME": ""
+    "CUSTOM_PIPELINE_NAME": "",
+    "ENABLE_FLOAT_OUTPUT": false
   }
 }

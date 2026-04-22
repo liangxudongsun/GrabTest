@@ -5,7 +5,7 @@
   "__editorExtras__": {},
   "_native": "",
   "_effectAsset": {
-    "__uuid__": "58d879bf-1203-4c83-9a20-7952890ad801",
+    "__uuid__": "c5f2efce-4ad7-46b6-92a0-7656565670a5",
     "__expectedType__": "cc.EffectAsset"
   },
   "_techIdx": 0,
@@ -15,12 +15,8 @@
   ],
   "_states": [
     {
-      "rasterizerState": {
-        "cullMode": 0
-      },
-      "depthStencilState": {
-        "depthTest": true
-      },
+      "rasterizerState": {},
+      "depthStencilState": {},
       "blendState": {
         "targets": [
           {}
@@ -33,7 +29,8 @@
       "blendState": {
         "targets": [
           {
-            "blend": false
+            "blendSrc": 2,
+            "blendDst": 4
           }
         ]
       }
@@ -41,11 +38,6 @@
   ],
   "_props": [
     {},
-    {
-      "frostTexture": {
-        "__uuid__": "5c0a5cf2-7efe-48ee-a6e6-6c9a29811c8c@6c48a",
-        "__expectedType__": "cc.Texture2D"
-      }
-    }
+    {}
   ]
 }

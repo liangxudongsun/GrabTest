@@ -418,6 +418,8 @@ export interface ForwardPassConfigs {
     enableFrostedGlass:boolean;
     
     enableBlurPass:boolean;
+    enableSceneBloom:boolean;
+    enableBufferBloom:boolean;
 
 }
 
@@ -488,9 +490,10 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         cameraConfigs.enableFrostedGlass=cameraConfigs.settings.frostedGlass.enabled;
         //QuadPass
         cameraConfigs.enableBlurPass=cameraConfigs.settings.blurPass.enabled;
-       
-      
 
+        cameraConfigs.enableSceneBloom=cameraConfigs.settings.sceneBloomPass.enabled;
+        cameraConfigs.enableBufferBloom=cameraConfigs.settings.bufferBloomPass.enabled;
+      
         ++cameraConfigs.remainingPasses;
     }
     windowResize(
@@ -542,6 +545,15 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
            
             
           
+        }
+
+        if(cameraConfigs.enableSceneBloom){
+            ppl.addRenderTarget(`SceneBloomMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
+        }
+
+        if(cameraConfigs.enableBufferBloom){
+            ppl.addRenderTarget(`BufferBloomMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
+            ppl.addRenderTarget(`BufferBloomBlurMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
         }
        
        
@@ -673,27 +685,50 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             !cameraConfigs.enableMSAA,
             cameraConfigs.enableStoreSceneDepth ? StoreOp.STORE : StoreOp.DISCARD);
 
+
+        if(cameraConfigs.enableBufferBloom){
+            if(!EDITOR){
+                this._addBufferBloomPass(ppl,cameraConfigs,camera,context);
+            }
+        }
+
+
+        if(cameraConfigs.enableGrab){
+            if(!EDITOR){
+              this._addGrabPass(ppl,cameraConfigs,camera,context);
+            }
+        } 
+
+      
+
+        if(cameraConfigs.enableSceneBloom){
+            if(!EDITOR){
+                this._addSceneBloomPass(ppl,cameraConfigs,camera,context)
+            }
+        }
+
+        
         if(cameraConfigs.enableBlurPass){
             if(!EDITOR){
                 this._addBlurPass(ppl,cameraConfigs,camera,context);
             }
         }
 
+
+        
+
+       
+       
+        //if(!EDITOR)this._addBlurStencilPass(ppl,camera,cameraConfigs.settings.frostedGlass.blurMaterial,0,0);
+       
         if(cameraConfigs.enableFrostedGlass){
             if(!EDITOR){
                 this._addFrostedGlassPass(ppl,cameraConfigs,camera,context);
             }
         }
-       
-        //if(!EDITOR)this._addBlurStencilPass(ppl,camera,cameraConfigs.settings.frostedGlass.blurMaterial,0,0);
-        if(cameraConfigs.enableGrab){
-            if(!EDITOR){
-              this._addGrabPass(ppl,cameraConfigs,camera,context);
-            }
-        } 
+
         
        
-      
         if (cameraConfigs.remainingPasses === 0 && cameraConfigs.enableShadingScale) {
           
             return addCopyToScreenPass(ppl, pplConfigs, cameraConfigs,context.colorName);
@@ -709,8 +744,37 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         
     }
 
-    public test=false; 
-
+    public test=false;
+    
+    private _addSceneBloomPass(
+        ppl: rendering.BasicPipeline,
+        cameraConfigs:CameraConfigs,
+        camera:renderer.scene.Camera,
+        contex:PipelineContext  
+    ): rendering.BasicRenderPassBuilder {
+        const id=camera.window.renderWindowId;
+        const size=new Vec2(camera.window.width,
+                            camera.window.height)
+        const pass=ppl.addRenderPass(size.x,size.y,'default');
+        pass.name='SceneBloomThresholdPass';
+        pass.addRenderTarget('SceneBloomMap',LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
+        pass.addTexture(`FrameMap`, 'grabTex');
+        pass.setFloat('threshold',cameraConfigs.settings.sceneBloomPass.threshold);
+        pass.setFloat('intensity',cameraConfigs.settings.sceneBloomPass.intensity);
+         const r=cameraConfigs.settings.sceneBloomPass.bloomTintR
+         const g=cameraConfigs.settings.sceneBloomPass.bloomTintG
+         const b=cameraConfigs.settings.sceneBloomPass.bloomTintB
+        pass.setVec4('bloomTint',new Vec4(r, g, b,1));
+        const viewport=this._viewport;
+        viewport.left=0;
+        viewport.top=0;
+        viewport.width=size.x;
+        viewport.height=size.y;
+        pass.setViewport(viewport);
+        pass.addQueue(rendering.QueueHint.NONE,'sceneBloom-caster')
+        .addScene(camera,rendering.SceneFlags.OPAQUE);
+        return pass;
+    }
     
 
 
@@ -738,7 +802,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         viewport.height=size.y;
         pass.setViewport(viewport);
         pass.addQueue(rendering.QueueHint.NONE,'frostedGlass-caster')
-        .addScene(camera,rendering.SceneFlags.OPAQUE);
+        .addScene(camera,rendering.SceneFlags.BLEND);
         return pass;
        
 
@@ -749,8 +813,10 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
     private _blurSizes:Vec2[]=[];
 
+   
+
     private _addBlurPass( ppl: rendering.BasicPipeline,
-          cameraConfigs:CameraConfigs,
+          cameraConfigs:CameraConfigs&ForwardPassConfigs,
           camera:renderer.scene.Camera,
           contex:PipelineContext 
     ):rendering.BasicRenderPassBuilder|undefined{
@@ -765,9 +831,13 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             viewport.top=0;
             viewport.width=width;
             viewport.height=height;
+            let frmaMap='FrameMap';
+            if(cameraConfigs.enableSceneBloom){
+                frmaMap='SceneBloomMap'
+            }
             const pass1=ppl.addRenderPass(width,height,'default');
             pass1.addRenderTarget(`TempBlurMap1${i}`,LoadOp.LOAD,StoreOp.STORE);
-            pass1.addTexture('FrameMap','inputTex');
+            pass1.addTexture(frmaMap,'inputTex');
             pass1.setVec4('BlurAmount',new Vec4(blurAmount/this._blurSizes[i].x,0,0,0));
             pass1.setViewport(viewport);
             pass1.addQueue(rendering.QueueHint.NONE,'quad-caster')
@@ -1260,6 +1330,63 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
     private readonly _viewport = new Viewport();
     private readonly _clearColor = new Color(0, 0, 0, 1);
     private readonly _reflectionProbeClearColor = new Vec3(0, 0, 0);
+
+    private _addBufferBloomPass(
+        ppl: rendering.BasicPipeline,
+        cameraConfigs: CameraConfigs,
+        camera: renderer.scene.Camera,
+        context: PipelineContext
+    ): rendering.BasicRenderPassBuilder {
+        const id = camera.window.renderWindowId;
+        const size = new Vec2(camera.window.width, camera.window.height);
+        const settings = cameraConfigs.settings.bufferBloomPass;
+
+        const pass = ppl.addRenderPass(size.x, size.y, 'default');
+        pass.name = 'BufferBloomPass';
+
+        pass.addRenderTarget('BufferBloomMap', LoadOp.LOAD, StoreOp.STORE);
+        pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
+        const viewport = this._viewport;
+        viewport.left = 0;
+        viewport.top = 0;
+        viewport.width = size.x;
+        viewport.height = size.y;
+        pass.setViewport(viewport);
+        pass.addQueue(rendering.QueueHint.NONE,'bufferBloom-caster')
+        .addScene(camera,rendering.SceneFlags.OPAQUE);
+
+        //使用全屏面片
+        const pass1 = ppl.addRenderPass(size.x, size.y, 'default');
+        pass1.name = 'BufferBloomBlurPass';
+
+        pass1.addRenderTarget('BufferBloomBlurMap', LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
+        pass1.addTexture('BufferBloomMap',`bloomMap`);
+        pass1.setViewport(viewport);
+        pass1.addQueue(rendering.QueueHint.NONE,'bufferBloomBlur-caster')
+        .addScene(camera,rendering.SceneFlags.OPAQUE);
+     
+
+         const pass2 = ppl.addRenderPass(size.x, size.y, 'default');
+        pass2.name = 'BufferBloomCombinePass';
+
+        pass2.addRenderTarget(context.colorName, LoadOp.LOAD, StoreOp.STORE);
+        pass2.addTexture('BufferBloomMap',`bloomMap`); 
+        pass2.addTexture('BufferBloomBlurMap',`bloomBlurMap`);
+        
+        pass2.setViewport(viewport);
+        pass2.addQueue(rendering.QueueHint.NONE,'bufferBloomCombine-caster')
+        .addScene(camera,rendering.SceneFlags.OPAQUE);
+        return pass2;
+
+    
+      
+
+      
+
+        //pass.addCameraQuad(camera);
+
+       
+    }
 }
 
 export interface BloomPassConfigs {
@@ -1980,7 +2107,10 @@ export class BuiltinUiPassBuilder implements rendering.PipelinePassBuilder {
             flags |= rendering.SceneFlags.PROFILER;
             prevRenderPass.showStatistics = true;
         }
-        ppl.addBuffer
+
+      
+        //prevRenderPass.addDepthStencil(context.depthStencilName,LoadOp.LOAD,StoreOp.STORE);
+    
         prevRenderPass
             .addQueue(rendering.QueueHint.BLEND, 'default', 'default')
             .addScene(camera, flags);

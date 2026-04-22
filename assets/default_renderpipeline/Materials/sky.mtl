@@ -10,11 +10,16 @@
   },
   "_techIdx": 0,
   "_defines": [
-    {}
+    {
+      "USE_INSTANCING": true
+    },
+    {
+      "USE_INSTANCING": true
+    }
   ],
   "_states": [
     {
-      "priority": 1,
+      "priority": 200,
       "rasterizerState": {},
       "depthStencilState": {
         "stencilFuncFront": 1,
@@ -22,12 +27,37 @@
       },
       "blendState": {
         "targets": [
-          {}
+          {
+            "blend": true
+          }
+        ]
+      },
+      "dynamics": [
+        0
+      ],
+      "customizations": [
+        ""
+      ]
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {
+            "blend": true
+          }
         ]
       }
     }
   ],
   "_props": [
+    {
+      "environmentMap": {
+        "__uuid__": "6f01cf7f-81bf-4a7e-bd5d-0afc19696480@b47c0",
+        "__expectedType__": "cc.TextureCube"
+      }
+    },
     {
       "environmentMap": {
         "__uuid__": "6f01cf7f-81bf-4a7e-bd5d-0afc19696480@b47c0",

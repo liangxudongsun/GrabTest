@@ -590,4 +590,238 @@ export class BuiltinPipelineSettings extends Component {
     get blurPassSizes(): number[] {
         return this._settings.blurPass.sizes;
     }
+
+    // BufferBloomPass
+    @property({
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCBoolean,
+    })
+    set bufferBloomPassEnable(value: boolean) {
+        this._settings.bufferBloomPass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomPassEnable(): boolean {
+        return this._settings.bufferBloomPass.enabled;
+    }
+
+    @property({
+        tooltip: '亮度阈值（超过此值的像素才会发光）',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 2.0, 0.01],
+        slide: true,
+    })
+    set bufferBloomThreshold(value: number) {
+        this._settings.bufferBloomPass.threshold = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomThreshold(): number {
+        return this._settings.bufferBloomPass.threshold;
+    }
+
+    @property({
+        tooltip: '泛光强度',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 10.0, 0.1],
+        slide: true,
+    })
+    set bufferBloomIntensity(value: number) {
+        this._settings.bufferBloomPass.intensity = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomIntensity(): number {
+        return this._settings.bufferBloomPass.intensity;
+    }
+
+    @property({
+        tooltip: '起始 Mipmap 级别',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 10.0, 0.1],
+        slide: true,
+    })
+    set bufferBloomLodStart(value: number) {
+        this._settings.bufferBloomPass.lodStart = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomLodStart(): number {
+        return this._settings.bufferBloomPass.lodStart;
+    }
+
+    @property({
+        tooltip: '模糊级别数量',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [1.0, 10.0, 0.1],
+        slide: true,
+    })
+    set bufferBloomLodCount(value: number) {
+        this._settings.bufferBloomPass.lodCount = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomLodCount(): number {
+        return this._settings.bufferBloomPass.lodCount;
+    }
+
+    @property({
+        tooltip: '泛光色调 R',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set bufferBloomTintR(value: number) {
+        this._settings.bufferBloomPass.bloomTintR = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomTintR(): number {
+        return this._settings.bufferBloomPass.bloomTintR;
+    }
+
+    @property({
+        tooltip: '泛光色调 G',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set bufferBloomTintG(value: number) {
+        this._settings.bufferBloomPass.bloomTintG = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomTintG(): number {
+        return this._settings.bufferBloomPass.bloomTintG;
+    }
+
+    @property({
+        tooltip: '泛光色调 B',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set bufferBloomTintB(value: number) {
+        this._settings.bufferBloomPass.bloomTintB = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get bufferBloomTintB(): number {
+        return this._settings.bufferBloomPass.bloomTintB;
+    }
+
+    // SceneBloomPass
+    @property({
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCBoolean,
+    })
+    set sceneBloomPassEnable(value: boolean) {
+        this._settings.sceneBloomPass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomPassEnable(): boolean {
+        return this._settings.sceneBloomPass.enabled;
+    }
+
+    @property({
+        tooltip: '亮度阈值（超过此值的像素才会发光）',
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 2.0, 0.01],
+        slide: true,
+    })
+    set sceneBloomThreshold(value: number) {
+        this._settings.sceneBloomPass.threshold = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomThreshold(): number {
+        return this._settings.sceneBloomPass.threshold;
+    }
+
+    @property({
+        tooltip: '泛光强度',
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 10.0, 0.1],
+        slide: true,
+    })
+    set sceneBloomIntensity(value: number) {
+        this._settings.sceneBloomPass.intensity = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomIntensity(): number {
+        return this._settings.sceneBloomPass.intensity;
+    }
+
+    @property({
+        tooltip: '泛光色调 R',
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set sceneBloomTintR(value: number) {
+        this._settings.sceneBloomPass.bloomTintR = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomTintR(): number {
+        return this._settings.sceneBloomPass.bloomTintR;
+    }
+
+    @property({
+        tooltip: '泛光色调 G',
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set sceneBloomTintG(value: number) {
+        this._settings.sceneBloomPass.bloomTintG = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomTintG(): number {
+        return this._settings.sceneBloomPass.bloomTintG;
+    }
+
+    @property({
+        tooltip: '泛光色调 B',
+        group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },
+        type: CCFloat,
+        range: [0.0, 1.0, 0.01],
+        slide: true,
+    })
+    set sceneBloomTintB(value: number) {
+        this._settings.sceneBloomPass.bloomTintB = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get sceneBloomTintB(): number {
+        return this._settings.sceneBloomPass.bloomTintB;
+    }
 }

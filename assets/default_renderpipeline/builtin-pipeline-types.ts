@@ -343,6 +343,100 @@ export function fillRequiredBlurPass(value: BlurPass): void {
     }
 }
 
+export interface BufferBloomPass {
+    enabled: boolean;
+    threshold: number;
+    intensity: number;
+    lodStart: number;
+    lodCount: number;
+    bloomTintR: number;
+    bloomTintG: number;
+    bloomTintB: number;
+    [name: string]: unknown;
+}
+
+export function makeBufferBloomPass(): BufferBloomPass {
+    return {
+        enabled: false,
+        threshold: 0.8,
+        intensity: 1.0,
+        lodStart: 2,
+        lodCount: 5,
+        bloomTintR: 1.0,
+        bloomTintG: 1.0,
+        bloomTintB: 1.0,
+    };
+}
+
+export function fillRequiredBufferBloomPass(value: BufferBloomPass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+    if (value.threshold === undefined) {
+        value.threshold = 0.8;
+    }
+    if (value.intensity === undefined) {
+        value.intensity = 1.0;
+    }
+    if (value.lodStart === undefined) {
+        value.lodStart = 2;
+    }
+    if (value.lodCount === undefined) {
+        value.lodCount = 5;
+    }
+    if (value.bloomTintR === undefined) {
+        value.bloomTintR = 1.0;
+    }
+    if (value.bloomTintG === undefined) {
+        value.bloomTintG = 1.0;
+    }
+    if (value.bloomTintB === undefined) {
+        value.bloomTintB = 1.0;
+    }
+}
+
+export interface SceneBloomPass {
+    enabled: boolean;
+    threshold: number;
+    intensity: number;
+    bloomTintR: number;
+    bloomTintG: number;
+    bloomTintB: number;
+    [name: string]: unknown;
+}
+
+export function makeSceneBloomPass(): SceneBloomPass {
+    return {
+        enabled: false,
+        threshold: 0.8,
+        intensity: 1.0,
+        bloomTintR: 1.0,
+        bloomTintG: 1.0,
+        bloomTintB: 1.0,
+    };
+}
+
+export function fillRequiredSceneBloomPass(value: SceneBloomPass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+    if (value.threshold === undefined) {
+        value.threshold = 0.8;
+    }
+    if (value.intensity === undefined) {
+        value.intensity = 1.0;
+    }
+    if (value.bloomTintR === undefined) {
+        value.bloomTintR = 1.0;
+    }
+    if (value.bloomTintG === undefined) {
+        value.bloomTintG = 1.0;
+    }
+    if (value.bloomTintB === undefined) {
+        value.bloomTintB = 1.0;
+    }
+}
+
 export interface PipelineSettings {
     readonly msaa: MSAA;
     enableShadingScale: boolean; /* false */
@@ -355,6 +449,8 @@ export interface PipelineSettings {
     readonly grab: Grab;
     readonly frostedGlass: FrostedGlass;
     readonly blurPass: BlurPass;
+    readonly bufferBloomPass: BufferBloomPass;
+    readonly sceneBloomPass: SceneBloomPass;
     [name: string]: unknown;
 }
 
@@ -371,6 +467,8 @@ export function makePipelineSettings(): PipelineSettings {
         grab: makeGrab(),
         frostedGlass: makeFrostedGlass(),
         blurPass: makeBlurPass(),
+        bufferBloomPass: makeBufferBloomPass(),
+        sceneBloomPass: makeSceneBloomPass(),
     };
 }
 
@@ -428,5 +526,17 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         (value.blurPass as BlurPass) = makeBlurPass();
     } else {
         fillRequiredBlurPass(value.blurPass);
+    }
+
+    if (!value.bufferBloomPass) {
+        (value.bufferBloomPass as BufferBloomPass) = makeBufferBloomPass();
+    } else {
+        fillRequiredBufferBloomPass(value.bufferBloomPass);
+    }
+
+    if (!value.sceneBloomPass) {
+        (value.sceneBloomPass as SceneBloomPass) = makeSceneBloomPass();
+    } else {
+        fillRequiredSceneBloomPass(value.sceneBloomPass);
     }
 }

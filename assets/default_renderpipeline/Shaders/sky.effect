@@ -11,8 +11,10 @@ CCEffect %{
       depthStencilState: &d1
         depthTest: true
         depthWrite: false
-    # - vert: sky-vs:vert
-    #   frag: sky-fss:frag
+
+
+   
+  
   
       
     

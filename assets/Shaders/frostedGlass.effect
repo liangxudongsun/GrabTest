@@ -2,6 +2,12 @@ CCEffect %{
   techniques:
   - name: transparent
     passes:
+    - vert: sceneBloom-vs:vert
+      frag: sceneBloom-fs:frag
+      phase: sceneBloom-caster
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
     - vert: blur-vs:vert
       frag: blur-fs:frag
       phase: quad-caster
@@ -24,6 +30,7 @@ CCEffect %{
       properties:
         frostTexture:  { value: white }
         frostIntensity: { value: 1.0, editor: { range: [0.0, 1.0] } }
+      
 }%
 
 CCProgram blur-vs %{
@@ -72,7 +79,8 @@ CCProgram blur-fs %{
   in vec4 uv45;
 
   vec4 frag() {
-  
+   
+
     vec4 color = vec4(0.0,0.,0.,0.);
     color += 0.40 * texture(inputTex, uv);
     color += 0.15 * texture(inputTex, uv01.xy);
@@ -81,6 +89,7 @@ CCProgram blur-fs %{
     color += 0.10 * texture(inputTex, uv23.zw);
     color += 0.05 * texture(inputTex, uv45.xy);
     color += 0.05 * texture(inputTex, uv45.zw);
+
     return vec4(color.rgb,1.);
   }
 }%
@@ -153,9 +162,64 @@ CCProgram frostedGlass-fs %{
     float step01 = smoothstep(0.5, 0.75, surfSmooth);
     float step02 = smoothstep(0.05, 0.5, surfSmooth);
     float step03 = smoothstep(0.00, 0.05, surfSmooth);
+//return lerp(ref03, lerp(lerp(lerp(ref03, ref02, step02), ref01, step01), ref00, step00), step03);
+    vec4 color = mix(ref03, mix(mix(mix(ref03, ref02, step02), ref01, step01), ref00, step00), step03);
 
-    vec3 color = mix(ref03.rgb, mix(mix(mix(ref03.rgb, ref02.rgb, step02), ref01.rgb, step01), ref00.rgb, step00), step03);
+    return CCFragOutput(color);
+  }
+}%
 
-    return CCFragOutput(vec4(color, 1.0));
+
+CCProgram sceneBloom-vs %{
+  precision highp float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <legacy/decode-base>
+  #include <legacy/local-batch>
+
+  out vec2 v_uv;
+  out vec4 v_scrPos;
+
+  vec4 vert() {
+    vec4 position;
+    CCVertInput(position);
+    mat4 matWorld;
+    CCGetWorldMatrix(matWorld);
+    vec4 worldPos = matWorld * position;
+    vec4 clipPos = cc_matProj * (cc_matView * worldPos);
+    v_scrPos = clipPos;
+    v_uv = a_texCoord;
+    return clipPos;
+  }
+}%
+
+CCProgram sceneBloom-fs %{
+  precision highp float;
+  #include <legacy/output-standard>
+  #include <builtin/uniforms/cc-global>
+
+  uniform sampler2D frostTexture;
+  #pragma rate sceneBloomUBO pass
+  uniform sceneBloomUBO{
+      vec4  bloomTint;
+      float threshold;
+      float intensity;
+  };
+  #pragma rate grabTex pass
+  uniform sampler2D grabTex;
+  in vec2 v_uv;
+  in vec4 v_scrPos;
+
+  vec4 frag() {
+    vec2 screenUV = (v_scrPos.xy / v_scrPos.w) * 0.5 + 0.5;
+    
+    
+    vec4 color = texture(grabTex, screenUV);
+    float brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    if (brightness > threshold) {
+        return color * (brightness - threshold) * intensity*bloomTint;
+    }
+    return color*bloomTint;
   }
 }%
