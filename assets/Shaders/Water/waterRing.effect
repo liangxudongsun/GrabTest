@@ -1,0 +1,81 @@
+// WaterRing - 水体交互波纹法线
+// 转换自 Unity shader: lcl/Water/WaterRing
+// 通过顶点色控制波纹扩散，输出切线空间法线到 RenderTexture
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: waterRing-vs:vert
+      frag: waterRing-fs:frag
+      depthStencilState:
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: one_minus_dst_color
+          blendDst: one
+      properties:
+        bumpPower:      { value: 2.0, editor: { slide: true, range: [0, 50, 0.1] } }
+        ringWidth:      { value: 0.0, editor: { slide: true, range: [0, 0.5, 0.001] } }
+        ringRange:      { value: 0.0, editor: { slide: true, range: [0, 1, 0.01] } }
+        ringSmoothness: { value: 0.0, editor: { slide: true, range: [0, 0.05, 0.001] } }
+}%
+
+CCProgram waterRing-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec2 v_uv;
+
+  vec4 vert() {
+    v_uv = a_texCoord;
+    return cc_matProj * (cc_matView * cc_matWorld) * vec4(a_position, 1.0);
+  }
+}%
+
+CCProgram waterRing-fs %{
+  precision highp float;
+
+  uniform waterRingUBO {
+    float bumpPower;
+    float ringWidth;
+    float ringRange;
+    float ringSmoothness;
+  };
+
+  in vec2 v_uv;
+
+  float doubleSmoothstep(vec2 uv) {
+    float dis = distance(vec4(uv, 0.0, 0.0), vec4(0.5));
+    float halfWidth = ringWidth * 0.5;
+
+    float threshold1 = ringRange - halfWidth;
+    float threshold2 = ringRange + halfWidth;
+
+    float value  = smoothstep(threshold1, threshold1 + ringSmoothness, dis);
+    float value2 = smoothstep(threshold2, threshold2 + ringSmoothness, dis);
+
+    return value - value2;
+  }
+
+  vec4 frag() {
+    float normalCenter = doubleSmoothstep(v_uv);
+
+    float s = 0.004;
+    float color0 = doubleSmoothstep(v_uv + vec2(-s, 0.0));
+    float color1 = doubleSmoothstep(v_uv + vec2( s, 0.0));
+    float color2 = doubleSmoothstep(v_uv + vec2(0.0, -s));
+    float color3 = doubleSmoothstep(v_uv + vec2(0.0,  s));
+
+    vec3 normal = normalize(vec3(bumpPower * (color0 - color1), bumpPower * (color2 - color3), 1.0));
+
+    float alpha = normalCenter;
+    return vec4((normal * 0.5 + 0.5) * alpha, normalCenter);
+  }
+}%

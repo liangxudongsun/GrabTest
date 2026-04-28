@@ -25,18 +25,17 @@ uniform sampler2D screenTex;
 #pragma rate grabTex pass
 uniform sampler2D grabTex;
 
-#pragma rate BufferBloomBlurMap pass
-uniform sampler2D BufferBloomBlurMap;
+
 
 in vec2 v_uv;
 void main() {
     
    vec3 glassColor = texture(screenTex, v_uv).rgb;
    vec3 backgroundColor=texture(grabTex,v_uv).rgb;
-   vec3 finalColor = 1.0 - (1.0 - backgroundColor) * (1.0 - glassColor);
+   //vec3 finalColor = 1.0 - (1.0 - backgroundColor) * (1.0 - glassColor);
  
     
-    fragColor = vec4(finalColor.rgb, 1.0);
+    fragColor = vec4(glassColor.rgb, 1.0);
 }
 }%
 

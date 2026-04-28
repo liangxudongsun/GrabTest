@@ -824,4 +824,19 @@ export class BuiltinPipelineSettings extends Component {
     get sceneBloomTintB(): number {
         return this._settings.sceneBloomPass.bloomTintB;
     }
+
+    @property({
+        tooltip: '启用深度复制',
+        group: { id: 'CopyDepthPass', name: 'CopyDepthPass', style: 'section' },
+        type: CCBoolean,
+    })
+    set copyDepthPassEnable(value: boolean) {
+        this._settings.copyDepthPass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get copyDepthPassEnable(): boolean {
+        return this._settings.copyDepthPass.enabled;
+    }
 }

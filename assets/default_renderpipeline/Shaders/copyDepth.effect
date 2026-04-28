@@ -1,0 +1,31 @@
+// Copyright (c) 2017-2023 Xiamen Yaji Software Co., Ltd.
+CCEffect %{
+techniques:
+  - passes:
+      - vert: copyDepth-vs
+        frag: copyDepth-fs
+        pass: copyDepth
+        depthStencilState:
+          depthTest: false
+          depthWrite: false
+}%
+
+CCProgram copyDepth-vs %{
+#include <./chunks/vs1>
+}%
+
+CCProgram copyDepth-fs %{
+precision highp float;
+
+layout(location = 0) out vec4 fragColor;
+
+#pragma rate depthTex pass
+uniform sampler2D depthTex;
+
+in vec2 v_uv;
+
+void main() {
+    float depth = texture(depthTex, v_uv).r;
+    fragColor = vec4(depth, depth, depth, 1.0);
+}
+}%

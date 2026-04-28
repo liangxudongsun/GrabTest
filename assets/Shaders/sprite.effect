@@ -4,7 +4,6 @@ CCEffect %{
   - passes:
     - vert: sprite-vs:vert
       frag: sprite-fs:frag
-     
       depthStencilState:
         depthTest: false
         depthWrite: false
@@ -18,6 +17,7 @@ CCEffect %{
         cullMode: none
       properties:
         alphaThreshold: { value: 0.5 }
+        
 }%
 
 CCProgram sprite-vs %{

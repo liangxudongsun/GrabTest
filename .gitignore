@@ -21,3 +21,7 @@ node_modules/
 
 AGENTS.md
 .trae/
+.claude/
+CLAUDE.md
+mcp-texture-tools/
+

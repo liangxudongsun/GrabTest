@@ -1,0 +1,43 @@
+{
+  "ver": "1.0.27",
+  "importer": "image",
+  "imported": true,
+  "uuid": "f52d6a5c-56a4-4c86-8b56-1b91a4f444cb",
+  "files": [
+    ".json",
+    ".png"
+  ],
+  "subMetas": {
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "f52d6a5c-56a4-4c86-8b56-1b91a4f444cb@6c48a",
+      "displayName": "courtyard_night_2k",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "repeat",
+        "wrapModeT": "repeat",
+        "minfilter": "nearest",
+        "magfilter": "nearest",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "f52d6a5c-56a4-4c86-8b56-1b91a4f444cb",
+        "visible": false
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "type": "texture",
+    "fixAlphaTransparencyArtifacts": false,
+    "isRGBE": true,
+    "hasAlpha": true,
+    "redirect": "f52d6a5c-56a4-4c86-8b56-1b91a4f444cb@6c48a"
+  }
+}

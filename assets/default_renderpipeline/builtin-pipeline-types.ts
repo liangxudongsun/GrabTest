@@ -437,6 +437,23 @@ export function fillRequiredSceneBloomPass(value: SceneBloomPass): void {
     }
 }
 
+export interface CopyDepthPass {
+    enabled: boolean;
+    [name: string]: unknown;
+}
+
+export function makeCopyDepthPass(): CopyDepthPass {
+    return {
+        enabled: false,
+    };
+}
+
+export function fillRequiredCopyDepthPass(value: CopyDepthPass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+}
+
 export interface PipelineSettings {
     readonly msaa: MSAA;
     enableShadingScale: boolean; /* false */
@@ -451,6 +468,7 @@ export interface PipelineSettings {
     readonly blurPass: BlurPass;
     readonly bufferBloomPass: BufferBloomPass;
     readonly sceneBloomPass: SceneBloomPass;
+    readonly copyDepthPass: CopyDepthPass;
     [name: string]: unknown;
 }
 
@@ -469,6 +487,7 @@ export function makePipelineSettings(): PipelineSettings {
         blurPass: makeBlurPass(),
         bufferBloomPass: makeBufferBloomPass(),
         sceneBloomPass: makeSceneBloomPass(),
+        copyDepthPass: makeCopyDepthPass(),
     };
 }
 
@@ -538,5 +557,11 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         (value.sceneBloomPass as SceneBloomPass) = makeSceneBloomPass();
     } else {
         fillRequiredSceneBloomPass(value.sceneBloomPass);
+    }
+
+    if (!value.copyDepthPass) {
+        (value.copyDepthPass as CopyDepthPass) = makeCopyDepthPass();
+    } else {
+        fillRequiredCopyDepthPass(value.copyDepthPass);
     }
 }

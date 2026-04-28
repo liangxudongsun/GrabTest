@@ -12,14 +12,11 @@
   "_defines": [
     {
       "USE_INSTANCING": true
-    },
-    {
-      "USE_INSTANCING": true
     }
   ],
   "_states": [
     {
-      "priority": 200,
+      "priority": 1,
       "rasterizerState": {},
       "depthStencilState": {
         "stencilFuncFront": 1,
@@ -38,26 +35,9 @@
       "customizations": [
         ""
       ]
-    },
-    {
-      "rasterizerState": {},
-      "depthStencilState": {},
-      "blendState": {
-        "targets": [
-          {
-            "blend": true
-          }
-        ]
-      }
     }
   ],
   "_props": [
-    {
-      "environmentMap": {
-        "__uuid__": "6f01cf7f-81bf-4a7e-bd5d-0afc19696480@b47c0",
-        "__expectedType__": "cc.TextureCube"
-      }
-    },
     {
       "environmentMap": {
         "__uuid__": "6f01cf7f-81bf-4a7e-bd5d-0afc19696480@b47c0",

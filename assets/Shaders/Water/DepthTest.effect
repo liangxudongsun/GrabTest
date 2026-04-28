@@ -1,0 +1,63 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      phase: grab-caster
+      properties: &props
+      
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+
+  out vec4 v_pos;
+  out vec2 v_uv;
+
+
+
+  vec4 vert () {
+    //顶点坐标变换到投影空间
+    vec4 vertex = vec4(a_position, 1.0);
+    v_pos = cc_matProj * (cc_matView * cc_matWorld) * vertex;
+
+    //uv坐标处理
+    v_uv = a_texCoord;
+    return v_pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_pos;
+  in vec2 v_uv;
+
+
+  #pragma rate depthTex pass
+  uniform sampler2D depthTex;
+
+
+  vec4 frag () {
+    vec2 uv=v_uv;
+    uv.y=1.-v_uv.y;
+   
+    //从贴图获取反照率
+    vec3 albedo = texture(depthTex, uv).rgb;
+
+  
+    return CCFragOutput(vec4(albedo, 1.0));
+  }
+}%

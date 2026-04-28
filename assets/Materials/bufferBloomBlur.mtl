@@ -11,6 +11,8 @@
   "_techIdx": 0,
   "_defines": [
     {},
+    {},
+    {},
     {}
   ],
   "_states": [
@@ -29,14 +31,35 @@
       "blendState": {
         "targets": [
           {
+            "blend": true,
             "blendSrc": 2,
             "blendDst": 4
           }
         ]
       }
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
     }
   ],
   "_props": [
+    {},
+    {},
     {},
     {}
   ]

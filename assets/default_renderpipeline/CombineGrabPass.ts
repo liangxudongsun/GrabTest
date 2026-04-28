@@ -170,7 +170,7 @@ export class CombineGrabPass extends BuiltinPipelinePassBuilder
         const combineGrabPass = ppl.addRenderPass(width, height, 'combineGrab');
         combineGrabPass.addRenderTarget(outputRadianceName, LoadOp.DISCARD, StoreOp.STORE, this._clearColorTransparentBlack);
         combineGrabPass.addTexture(inputRadiance, 'screenTex');
-        combineGrabPass.addTexture('FrameMap',`grabTex`);
+        //combineGrabPass.addTexture('FrameMap',`grabTex`);
         combineGrabPass
             .addQueue(rendering.QueueHint.OPAQUE)
             .addCameraQuad(camera, material, 0); // addCameraQuad will set camera related UBOs

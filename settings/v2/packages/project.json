@@ -2,9 +2,16 @@
   "__version__": "1.0.6",
   "custom_joint_texture_layouts": [],
   "general": {
-    "renderPipeline": "c7e748e8-be82-4f6f-b2c0-085b604e40e5"
+    "renderPipeline": "c7e748e8-be82-4f6f-b2c0-085b604e40e5",
+    "highQuality": true
   },
   "script": {
     "preserveSymlinks": true
-  }
+  },
+  "layer": [
+    {
+      "name": "Watering",
+      "value": 1
+    }
+  ]
 }

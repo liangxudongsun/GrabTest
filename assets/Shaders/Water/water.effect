@@ -1,0 +1,192 @@
+// Water Interaction Shader - Converted from Unity
+// 支持折射、反射、深度混合、波纹交互
+
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: water-vs:vert
+      frag: water-fs:frag
+      phase: grab-caster
+      depthStencilState:
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+      properties: &props
+        shallowColor:  { value: [0.325, 0.807, 0.971, 0.725], editor: { type: color } }
+        deepColor:     { value: [0.086, 0.407, 1.0, 0.749], editor: { type: color } }
+        normalMap:     { value: normal, editor: { type: texture } }
+        normalMap_ST:  { value: [1, 1, 0, 0] }
+        ringMap:       { value: white, editor: { type: texture } }
+        ringMap_ST:    { value: [1, 1, 0, 0] }
+        envMap:        { value: grey, editor: { type: texture } }
+        waveSpeedX:    { value: 0.01, editor: { slide: true, range: [-0.1, 0.1, 0.001] } }
+        waveSpeedY:    { value: 0.01, editor: { slide: true, range: [-0.1, 0.1, 0.001] } }
+        distortion:    { value: 10.0, editor: { slide: true, range: [0, 100, 0.1] } }
+        depthMaxDist:  { value: 1.0, editor: { slide: true, range: [0, 2, 0.01] } }
+        fresnelPower:  { value: 0.5, editor: { slide: true, range: [0, 10, 0.1] } }
+        ringPower:     { value: 0.0, editor: { slide: true, range: [-10, 10, 0.1] } }
+}%
+
+CCProgram water-vs %{
+  precision highp float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-local>
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/decode-base>
+  #include <legacy/local-batch>
+  
+  uniform waterVSUBO {
+    vec4 normalMap_ST;
+  };
+  
+  out vec2 v_uv;
+  out vec4 v_scrPos;
+  out vec3 v_worldPos;
+  out vec3 v_worldNormal;
+  out mat3 v_tbn;
+  
+  vec4 vert () {
+    vec4 position;
+    CCVertInput(position);
+    
+    mat4 matWorld;
+    CCGetWorldMatrix(matWorld);
+    vec4 worldPos = matWorld * position;
+    
+    v_worldPos = worldPos.xyz;
+    v_scrPos = cc_matProj * cc_matView * worldPos;
+    v_uv = a_texCoord * normalMap_ST.xy + normalMap_ST.zw;
+    
+    vec3 worldNormal = normalize((matWorld * vec4(a_normal, 0.0)).xyz);
+    v_worldNormal = worldNormal;
+    
+    vec3 worldTangent = normalize((matWorld * vec4(a_tangent.xyz, 0.0)).xyz);
+    vec3 worldBinormal = cross(worldNormal, worldTangent) * a_tangent.w;
+    v_tbn = mat3(worldTangent, worldBinormal, worldNormal);
+    
+    return v_scrPos;
+  }
+}%
+
+CCProgram water-fs %{
+  precision highp float;
+  #include <legacy/output-standard>
+  #include <builtin/uniforms/cc-global>
+  
+  #pragma rate grabTex pass
+  uniform sampler2D grabTex;
+
+  #pragma rate depthTex pass
+  uniform sampler2D depthTex;
+  
+  uniform sampler2D normalMap;
+  uniform sampler2D ringMap;
+  uniform samplerCube envMap;
+  
+  uniform waterUBO {
+    vec4 shallowColor;
+    vec4 deepColor;
+    vec4 ringMap_ST;
+    float waveSpeedX;
+    float waveSpeedY;
+    float distortion;
+    float depthMaxDist;
+    float fresnelPower;
+    float ringPower;
+  };
+  
+  in vec2 v_uv;
+  in vec4 v_scrPos;
+  in vec3 v_worldPos;
+  in vec3 v_worldNormal;
+  in mat3 v_tbn;
+
+  vec3 unpackNormal(vec4 packedNormal) {
+
+    // 
+    vec3 normal = packedNormal.xyz * 2.0 - 1.0;
+    return normalize(normal);
+  }
+
+  // 解码 waterRing 输出的预乘 alpha 灰色法线: rgb = (normal*0.5+0.5) * alpha
+  vec3 unpackRingNormal(vec4 rgba) {
+    float a = max(rgba.a, 0.1);
+    return normalize(rgba.rgb /a * 2.0 - 1.0);
+  }
+
+  float LinearEyeDepth(float rawDepth) {
+    float near = cc_matProj[3][2] / (cc_matProj[2][2] - 1.0);
+    float far = cc_matProj[3][2] / (cc_matProj[2][2] + 1.0);
+    return (near * far) / (far - rawDepth * (far - near));
+  }
+  
+  vec4 frag () {
+    vec2 screenPos = v_scrPos.xy / v_scrPos.w;
+    vec2 screenUV = screenPos * 0.5 + 0.5;
+    
+    #if CC_EDITOR
+      screenUV.y = 1.0 - screenUV.y;
+    #endif
+    
+    // 采样场景深度并线性化
+    float rawDepth = texture(depthTex, screenUV).r;
+    float sceneDepthLinear = LinearEyeDepth(rawDepth);
+    
+    // 计算深度差异（Unity 方式：直接用 screenPos.w）
+    float depthDifference = sceneDepthLinear - v_scrPos.w;
+    float waterDepth01 = clamp(depthDifference / depthMaxDist, 0.0, 1.0);
+    vec4 waterColor = mix(shallowColor, deepColor, waterDepth01);
+    
+    // 视角方向
+    vec3 viewDir = normalize(cc_cameraPos.xyz - v_worldPos);
+    
+    // 法线动画
+    float time = cc_time.x;
+    vec2 speed = time * vec2(waveSpeedX, waveSpeedY);
+    
+    vec3 bump1 = unpackNormal(texture(normalMap, v_uv + speed));
+    vec3 bump2 = unpackNormal(texture(normalMap, v_uv - speed));
+    vec3 bump = normalize(bump1 + bump2);
+    
+    // 折射偏移（带深度因子，近大远小）
+    vec2 offset = bump.xy * distortion * cc_screenSize.zw;
+    vec2 refractScreenPos = screenPos + offset * (v_scrPos.z / v_scrPos.w);
+    vec2 refractUV = refractScreenPos * 0.5 + 0.5;
+    
+    #if CC_EDITOR
+      refractUV.y = 1.0 - refractUV.y;
+    #endif
+    
+    vec3 refractColor = texture(grabTex, refractUV).rgb;
+    
+    // 世界空间法线
+    vec3 worldBump = normalize(v_tbn * bump);
+    
+    // 波纹法线
+    vec2 ringUV = screenUV * ringMap_ST.xy + ringMap_ST.zw;
+    vec4 ringColor = texture(ringMap, ringUV);
+    vec3 ringNormal = unpackRingNormal(ringColor);//（rt）得到 灰色法线 cocos 应该不能这样解码 unpackNormal只能解码引擎指定的法线格式 normalTexture 一般紫色
+    ringNormal = normalize(v_tbn * ringNormal);
+    ringNormal = normalize(ringNormal) * ringColor.a * ringPower;
+    
+  
+    vec3 finalNormal = normalize(worldBump + ringNormal);
+    
+    // 反射
+    vec3 reflDir = reflect(-viewDir, finalNormal);
+    vec3 reflColor = texture(envMap, reflDir).rgb * waterColor.rgb;
+    
+    // Fresnel
+    float fresnel = pow(1.0 - clamp(dot(viewDir, finalNormal), 0.0, 1.0), fresnelPower);
+    
+    // 最终颜色
+    vec3 finalColor = reflColor * fresnel + refractColor * (1.0 - fresnel);
+
+    return vec4(finalColor, 1.0);
+  }
+}%

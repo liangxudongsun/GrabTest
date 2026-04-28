@@ -1,0 +1,55 @@
+{
+  "__type__": "cc.Material",
+  "_name": "",
+  "_objFlags": 0,
+  "__editorExtras__": {},
+  "_native": "",
+  "_effectAsset": {
+    "__uuid__": "b81ff246-99f9-42a9-bbe8-e33862bc939c",
+    "__expectedType__": "cc.EffectAsset"
+  },
+  "_techIdx": 0,
+  "_defines": [
+    {}
+  ],
+  "_states": [
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    }
+  ],
+  "_props": [
+    {
+      "normalMap": {
+        "__uuid__": "42662d8d-339f-4364-95de-3beace7d486b@3c318",
+        "__expectedType__": "cc.Texture2D"
+      },
+      "normalMap_ST": {
+        "__type__": "cc.Vec4",
+        "x": 1.5,
+        "y": 1.5,
+        "z": 0,
+        "w": 0
+      },
+      "ringMap": {
+        "__uuid__": "0b86171f-93d6-4f5c-af31-8b11a2445573",
+        "__expectedType__": "cc.RenderTexture"
+      },
+      "envMap": {
+        "__uuid__": "7d10f4c8-f6c4-494d-94ca-c9dfbe6d8379@b47c0",
+        "__expectedType__": "cc.TextureCube"
+      },
+      "waveSpeedX": 0.024,
+      "waveSpeedY": 0.018,
+      "distortion": 59.9,
+      "depthMaxDist": 1.57,
+      "fresnelPower": 3.7,
+      "ringPower": 10
+    }
+  ]
+}
