@@ -17,6 +17,8 @@ node_modules/
 # VSCode
 #//////////////////////////
 .vscode/
+build-templates/
+
 
 
 AGENTS.md
