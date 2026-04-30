@@ -113,10 +113,13 @@ CCProgram water-fs %{
     return normalize(normal);
   }
 
-  // 解码 waterRing 输出的预乘 alpha 灰色法线: rgb = (normal*0.5+0.5) * alpha
-  vec3 unpackRingNormal(vec4 rgba) {
-    float a = max(rgba.a, 0.1);
-    return normalize(rgba.rgb /a * 2.0 - 1.0);
+  // 从白色高度图有限差分算法线
+  vec3 heightToNormal(sampler2D tex, vec2 uv, float strength) {
+    float s = 0.002;
+    float h0 = texture(tex, uv).a;
+    float h1 = texture(tex, uv + vec2(s, 0.0)).a;
+    float h2 = texture(tex, uv + vec2(0.0, s)).a;
+    return normalize(vec3((h1 - h0) * strength, (h2 - h0) * strength, 1.0));
   }
 
   float LinearEyeDepth(float rawDepth) {
@@ -167,12 +170,10 @@ CCProgram water-fs %{
     // 世界空间法线
     vec3 worldBump = normalize(v_tbn * bump);
     
-    // 波纹法线
+    // 波纹法线（从白色高度图算法线）
     vec2 ringUV = screenUV * ringMap_ST.xy + ringMap_ST.zw;
-    vec4 ringColor = texture(ringMap, ringUV);
-    vec3 ringNormal = unpackRingNormal(ringColor);//（rt）得到 灰色法线 cocos 应该不能这样解码 unpackNormal只能解码引擎指定的法线格式 normalTexture 一般紫色
+    vec3 ringNormal = heightToNormal(ringMap, ringUV, ringPower);
     ringNormal = normalize(v_tbn * ringNormal);
-    ringNormal = normalize(ringNormal) * ringColor.a * ringPower;
     
   
     vec3 finalNormal = normalize(worldBump + ringNormal);

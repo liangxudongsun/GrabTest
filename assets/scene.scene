@@ -144,9 +144,9 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -0.11384419177103365,
-      "y": -0.3681985276982036,
-      "z": -4.148338865642593
+      "x": -0.603,
+      "y": -1.246,
+      "z": -2.135
     },
     "_lrot": {
       "__type__": "cc.Quat",
@@ -325,13 +325,13 @@
         "enable": true
       },
       "frostedGlass": {
-        "enabled": true,
+        "enabled": false,
         "blurMaterial": null,
         "blurIterations": 2,
         "downSample": 2
       },
       "blurPass": {
-        "enabled": true,
+        "enabled": false,
         "blurAmount": 0.5,
         "sizes": [
           1,
@@ -341,7 +341,7 @@
         ]
       },
       "sceneBloomPass": {
-        "enabled": true,
+        "enabled": false,
         "threshold": 0.17,
         "intensity": 10,
         "blurAmount": 1,
@@ -836,7 +836,7 @@
       "__type__": "cc.Vec3",
       "x": -0.194,
       "y": 0.071,
-      "z": 0.945
+      "z": -1.268
     },
     "_lrot": {
       "__type__": "cc.Quat",
@@ -1036,7 +1036,7 @@
     },
     "_diffuseMapHDR": null,
     "_diffuseMapLDR": null,
-    "_enabled": true,
+    "_enabled": false,
     "_useHDR": false,
     "_editableMaterial": {
       "__uuid__": "087fd6a0-2e42-4834-9d79-44dd988c18f6",

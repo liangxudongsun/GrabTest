@@ -66,16 +66,6 @@ CCProgram waterRing-fs %{
 
   vec4 frag() {
     float normalCenter = doubleSmoothstep(v_uv);
-
-    float s = 0.004;
-    float color0 = doubleSmoothstep(v_uv + vec2(-s, 0.0));
-    float color1 = doubleSmoothstep(v_uv + vec2( s, 0.0));
-    float color2 = doubleSmoothstep(v_uv + vec2(0.0, -s));
-    float color3 = doubleSmoothstep(v_uv + vec2(0.0,  s));
-
-    vec3 normal = normalize(vec3(bumpPower * (color0 - color1), bumpPower * (color2 - color3), 1.0));
-
-    float alpha = normalCenter;
-    return vec4((normal * 0.5 + 0.5) * alpha, normalCenter);
+    return vec4(vec3(normalCenter), normalCenter);
   }
 }%

@@ -150,6 +150,11 @@ CCProgram bufferBloomCombine-fs %{
   
   #pragma rate bloomBlurMap pass
   uniform sampler2D bloomBlurMap;
+
+  #pragma rate FrameMap pass
+  uniform sampler2D FrameMap;
+
+
   
 
   
@@ -184,12 +189,18 @@ CCProgram bufferBloomCombine-fs %{
     color = pow(color, vec3(2.2));
     color += pow(getBloom(uv), vec3(2.2));
     color = pow(color, vec3(1.0 / 2.2));
-    
+    float alpha=1.;
     color = jodieReinhardTonemap(color);
+
+    vec3 grabColor=texture(FrameMap,uv).rgb;
+
+    vec3 finalColor=1.-(1.-grabColor)*(1.-color);
+   
+
     
 
     
-    return vec4(color, 1.0);
+    return vec4(finalColor, 1.);
   }
 }%
 

@@ -481,7 +481,7 @@
       "enableShadingScale": false,
       "shadingScale": 0.5,
       "bloom": {
-        "enabled": false,
+        "enabled": true,
         "type": 0,
         "material": null,
         "mipmapFilterMaterial": null,
@@ -567,7 +567,7 @@
     "_enabled": true,
     "__prefab": null,
     "configOrder": 0,
-    "renderOrder": 999,
+    "renderOrder": 101,
     "material": {
       "__uuid__": "13d61d87-728a-4d10-88b4-16236bc223c4",
       "__expectedType__": "cc.Material"
@@ -1119,7 +1119,7 @@
       "y": 1,
       "z": 1
     },
-    "_mobility": 0,
+    "_mobility": 2,
     "_layer": 1,
     "_euler": {
       "__type__": "cc.Vec3",
@@ -1240,7 +1240,7 @@
       "__id__": 84
     },
     "_prewarm": false,
-    "_capacity": 1000,
+    "_capacity": 5,
     "_simulationSpace": 0,
     "_id": "79Fv5dvKVLg6mkbWz21Ifm"
   },
@@ -1318,13 +1318,13 @@
   {
     "__type__": "cc.CurveRange",
     "mode": 0,
-    "constant": 0.8,
+    "constant": 1,
     "multiplier": 1
   },
   {
     "__type__": "cc.CurveRange",
     "mode": 0,
-    "constant": 10,
+    "constant": 1,
     "multiplier": 1
   },
   {
@@ -1402,8 +1402,8 @@
     },
     "_scale": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
+      "x": 0.1,
+      "y": 0.1,
       "z": 0
     },
     "_arc": 6.283185307179586,
@@ -1831,7 +1831,7 @@
     "_gpuMaterial": null,
     "_mainTexture": null,
     "_useGPU": false,
-    "_alignSpace": 0
+    "_alignSpace": 1
   },
   {
     "__type__": "cc.MeshRenderer",
