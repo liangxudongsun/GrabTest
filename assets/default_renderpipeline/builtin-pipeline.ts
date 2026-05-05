@@ -1050,6 +1050,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             if (!probe.needRender) {
                 continue;
             }
+          
             const area = probe.renderArea();
             const width = Math.max(Math.floor(area.x), 1);
             const height = Math.max(Math.floor(area.y), 1);
@@ -2191,6 +2192,7 @@ export class BuiltinUiPassBuilder implements rendering.PipelinePassBuilder {
     getRenderOrder(): number {
         return 1000;
     }
+    t=0;
     setup(
         ppl: rendering.BasicPipeline,
         pplConfigs: Readonly<PipelineConfigs>,
@@ -2199,7 +2201,12 @@ export class BuiltinUiPassBuilder implements rendering.PipelinePassBuilder {
         context: PipelineContext,
         prevRenderPass?: rendering.BasicRenderPassBuilder)
         : rendering.BasicRenderPassBuilder | undefined {
+  
+        
+    
         assert(!!prevRenderPass);
+
+  
 
         let flags = rendering.SceneFlags.UI;
         if (cameraConfigs.enableProfiler) {
@@ -2208,12 +2215,12 @@ export class BuiltinUiPassBuilder implements rendering.PipelinePassBuilder {
         }
 
       
-        //prevRenderPass.addDepthStencil(context.depthStencilName,LoadOp.LOAD,StoreOp.STORE);
-      
         prevRenderPass
             .addQueue(rendering.QueueHint.BLEND, 'default', 'default')
             .addScene(camera, flags);
-       
+        
+      
+      
         return prevRenderPass;
     }
 }
@@ -2506,8 +2513,14 @@ if (rendering) {
                 flags |= SceneFlags.PROFILER;
                 pass.showStatistics = true;
             }
-            pass.addQueue(QueueHint.BLEND)
+
+          
+            pass.addQueue(QueueHint.BLEND,'default','default',)
                 .addScene(camera, flags);
+
+ 
+
+            
         }
 
         private _buildForwardPipeline(

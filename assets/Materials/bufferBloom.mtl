@@ -10,12 +10,13 @@
   },
   "_techIdx": 0,
   "_defines": [
-    {},
     {}
   ],
   "_states": [
     {
-      "rasterizerState": {},
+      "rasterizerState": {
+        "cullMode": 0
+      },
       "depthStencilState": {
         "depthFunc": 3
       },
@@ -24,24 +25,9 @@
           {}
         ]
       }
-    },
-    {
-      "rasterizerState": {},
-      "depthStencilState": {},
-      "blendState": {
-        "targets": [
-          {}
-        ]
-      }
     }
   ],
   "_props": [
-    {
-      "_MainTex": {
-        "__uuid__": "8d48a781-f8b3-4bf9-a7fb-85d17b7c8764@6c48a",
-        "__expectedType__": "cc.Texture2D"
-      }
-    },
     {
       "_MainTex": {
         "__uuid__": "8d48a781-f8b3-4bf9-a7fb-85d17b7c8764@6c48a",

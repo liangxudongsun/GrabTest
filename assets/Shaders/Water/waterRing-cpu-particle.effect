@@ -11,7 +11,7 @@ CCEffect %{
         ringRange:      { value: 0.0, editor: { slide: true, range: [0, 1, 0.01] } }
         ringSmoothness: { value: 0.0, editor: { slide: true, range: [0, 0.05, 0.001] } }
   }%
-// TODO: soft particle
+
 CCProgram waterRing-fs %{
   precision mediump float;
   #include <legacy/output>

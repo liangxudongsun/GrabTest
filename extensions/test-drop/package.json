@@ -1,0 +1,14 @@
+{
+    "package_version": 2,
+    "name": "test-drop",
+    "version": "1.0.0",
+    "main": "./dist/main.js",
+    "description": "测试资源拖放",
+    "panels": {
+        "main": {
+            "title": "Drop Test",
+            "type": "dockable",
+            "main": "./dist/panel.js"
+        }
+    }
+}

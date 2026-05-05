@@ -12,6 +12,27 @@
     {
       "name": "Watering",
       "value": 1
+    },
+    {
+      "name": "ParticleCollisionBox",
+      "value": 2
     }
-  ]
+  ],
+  "physics": {
+    "collisionGroups": [
+      {
+        "index": 1,
+        "name": "Particle1"
+      },
+      {
+        "index": 2,
+        "name": "ParticleCollisionBox"
+      }
+    ],
+    "collisionMatrix": {
+      "0": 1,
+      "1": 4,
+      "2": 2
+    }
+  }
 }

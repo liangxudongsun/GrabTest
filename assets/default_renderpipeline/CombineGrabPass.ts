@@ -168,7 +168,8 @@ export class CombineGrabPass extends BuiltinPipelinePassBuilder
         this._cocTexSize.w = height;
         const id = cameraConfigs.renderWindowId;
         const combineGrabPass = ppl.addRenderPass(width, height, 'combineGrab');
-        combineGrabPass.addRenderTarget(outputRadianceName, LoadOp.DISCARD, StoreOp.STORE, this._clearColorTransparentBlack);
+        combineGrabPass.name='combineGrabPass'
+        combineGrabPass.addRenderTarget(outputRadianceName, LoadOp.CLEAR, StoreOp.STORE, this._clearColorTransparentBlack);
         combineGrabPass.addTexture(inputRadiance, 'screenTex');
         combineGrabPass
             .addQueue(rendering.QueueHint.OPAQUE)
