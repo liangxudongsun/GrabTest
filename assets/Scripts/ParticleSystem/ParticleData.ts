@@ -32,6 +32,8 @@ export class Particle {
     randomSeed = Math.random();
     /** 碰撞分组 */
     group = 1;
+    /** 质量（影响碰撞时被击退的程度，越大越推不动） */
+    mass = 1;
     /** 归一化生命周期 [0,1] */
     get normalizedAge(): number {
         return Math.min(this.age / this.lifetime, 1);

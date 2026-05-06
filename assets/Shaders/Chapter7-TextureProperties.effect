@@ -49,7 +49,10 @@ CCProgram fs %{
 
   vec4 frag () {
     vec3 albedo = texture(_MainTex, v_uv).rgb;
+    if(v_color.r==0.){
+      return vec4(1.,0.,0.,1.);
+    }
     
-    return CCFragOutput(vec4(albedo.rgb, v_color.a));
+    return CCFragOutput(vec4(albedo.rgb, 1.));
   }
 }%

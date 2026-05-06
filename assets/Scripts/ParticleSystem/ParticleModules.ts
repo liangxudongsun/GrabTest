@@ -1,6 +1,7 @@
 import { _decorator, CurveRange, GradientRange, Enum, Vec3, Mat4, Node, Quat } from 'cc';
 import { ParticleCollider } from '../ParticleCollider';
 import { Particle } from './ParticleData';
+import { IParticleSystem } from './ParticleSystemManager';
 
 const { ccclass, property } = _decorator;
 
@@ -236,7 +237,7 @@ export class RotationOvertimeModule {
     })
     overall: CurveRange = new CurveRange();
 
-    @property({
+    @property({ 
         type: CurveRange,
         displayName: 'X',
         visible: function () { return (this as RotationOvertimeModule).mode === RotationMode.Separate; },
@@ -249,7 +250,7 @@ export class RotationOvertimeModule {
         visible: function () { return (this as RotationOvertimeModule).mode === RotationMode.Separate; },
     })
     y: CurveRange = new CurveRange();
-
+ 
     @property({
         type: CurveRange,
         displayName: 'Z',
@@ -297,7 +298,8 @@ interface ColliderData {
     center: Vec3;
     halfExt: Vec3;
     group: number;
-    rotation:Quat
+    rotation: Quat;
+    component: ParticleCollider;
 }
 
 function _findParticleColliders(root: Node, out: ParticleCollider[]) {
@@ -308,13 +310,24 @@ function _findParticleColliders(root: Node, out: ParticleCollider[]) {
 
 @ccclass('CollisionModule')
 export class CollisionModule {
-    @property enable = false;
+    @property({ displayName: 'Enable' }) enable = false;
+    @property({ displayName: 'Collider Bounce', tooltip: '碰撞碰撞器时自动反弹' }) enableBounce = true;
     @property({ displayName: 'Bounce', slide: true, range: [0, 1, 0.01] }) bounce = 0.5;
     @property collisionLayer = 1 << 1;
     @property({ displayName: 'Collision Mask', tooltip: '粒子碰撞掩码' }) collisionMask = -1;
+    @property({ displayName: 'Particle Collision', tooltip: '启用粒子间碰撞' }) enableParticleCollision = true;
+    @property({ displayName: 'Particle Bounce Enable', tooltip: '粒子间碰撞时自动反弹' }) enableParticleBounce = true;
+    @property({ displayName: 'Particle Bounce', slide: true, range: [0, 1, 0.01] }) particleBounce = 0.5;
 
     private _colliders: ColliderData[] = [];
     private _invMat = new Mat4();
+
+    /** 所属粒子系统（仅用于回调，由构造或 onLoad 设置） */
+    _owner: IParticleSystem | null;
+
+    constructor(owner?: IParticleSystem) {
+        this._owner = owner ?? null;
+    }
 
     refresh(sceneRoot: Node, sysNode?: Node) {
         this._colliders.length = 0;
@@ -362,61 +375,86 @@ export class CollisionModule {
                 center: localCenter,
                 halfExt: halfExt,
                 rotation: localRot,
-                group: pc.group
+                group: pc.group,
+                component: pc
             });
         }
     }
     apply(p: Particle) {
-    if (!this.enable) return;
+        if (!this.enable) return;
 
-    const localPos = new Vec3();
-    const localVel = new Vec3();
-    const invBoxRot = new Quat();
+        const localPos = new Vec3();
+        const localVel = new Vec3();
+        const invBoxRot = new Quat();
+        const hitPos = new Vec3();
 
-    for (const c of this._colliders) {
-        // 1. 获取盒子的旋转的逆
-        Quat.invert(invBoxRot, c.rotation);
+        for (const c of this._colliders) {
+            // 分组过滤
+            if ((c.group & this.collisionMask) === 0) continue;
 
-        // 2. 世界 → 盒子局部坐标
-        Vec3.subtract(localPos, p.position, c.center);
-        Vec3.transformQuat(localPos, localPos, invBoxRot);   // 位置
-        Vec3.transformQuat(localVel, p.velocity, invBoxRot); // 速度
+            // 世界 → 盒子局部坐标
+            Quat.invert(invBoxRot, c.rotation);
+            Vec3.subtract(localPos, p.position, c.center);
+            Vec3.transformQuat(localPos, localPos, invBoxRot);
+            Vec3.transformQuat(localVel, p.velocity, invBoxRot);
 
-        const hx = c.halfExt.x, hy = c.halfExt.y, hz = c.halfExt.z;
-        const minX = -hx, maxX = hx;
-        const minY = -hy, maxY = hy;
-        const minZ = -hz, maxZ = hz;
+            const hx = c.halfExt.x, hy = c.halfExt.y, hz = c.halfExt.z;
 
-        const nearL = localPos.x - minX, nearR = maxX - localPos.x;
-        const nearB = localPos.y - minY, nearT = maxY - localPos.y;
-        const nearF = localPos.z - minZ, nearBk = maxZ - localPos.z;
+            let bounced = false;
+            const bounceMul = this.enableBounce ? -this.bounce : 0;
 
-        const th = Math.max(
-            1,
-            Math.abs(localVel.x) * 0.035,
-            Math.abs(localVel.y) * 0.035,
-            Math.abs(localVel.z) * 0.035
-        );
+            // ── 越界检测（取代阈值瞬移）──
+            // 粒子位置已在 update 中更新过，直接检查是否超出边界
 
-        // 3. 在盒子本地坐标系内反弹（与你原始逻辑一致）
-        if (Math.abs(nearL) < th && nearL * localVel.x < 0) {
-            localVel.x *= -this.bounce;
-        } else if (Math.abs(nearR) < th && nearR * localVel.x > 0) {
-            localVel.x *= -this.bounce;
+            // X 轴面（需在 Y、Z 范围内）
+            if (Math.abs(localPos.y) <= hy && Math.abs(localPos.z) <= hz) {
+                if (localPos.x > hx) {
+                    localPos.x = hx;
+                    localVel.x *= bounceMul;
+                    bounced = true;
+                } else if (localPos.x < -hx) {
+                    localPos.x = -hx;
+                    localVel.x *= bounceMul;
+                    bounced = true;
+                }
+            }
+
+            // Y 轴面（需在 X、Z 范围内）
+            if (Math.abs(localPos.x) <= hx && Math.abs(localPos.z) <= hz) {
+                if (localPos.y > hy) {
+                    localPos.y = hy;
+                    localVel.y *= bounceMul;
+                    bounced = true;
+                } else if (localPos.y < -hy) {
+                    localPos.y = -hy;
+                    localVel.y *= bounceMul;
+                    bounced = true;
+                }
+            }
+
+            // Z 轴面（需在 X、Y 范围内）
+            if (Math.abs(localPos.x) <= hx && Math.abs(localPos.y) <= hy) {
+                if (localPos.z > hz) {
+                    localPos.z = hz;
+                    localVel.z *= bounceMul;
+                    bounced = true;
+                } else if (localPos.z < -hz) {
+                    localPos.z = -hz;
+                    localVel.z *= bounceMul;
+                    bounced = true;
+                }
+            }
+
+            if (!bounced) continue;
+
+            // 局部 → 世界
+            Vec3.transformQuat(p.velocity, localVel, c.rotation);
+            Vec3.transformQuat(p.position, localPos, c.rotation);
+            p.position.add(c.center);
+
+            // 碰撞回调
+            hitPos.set(p.position);
+            this._owner?.onParticleHitCollider?.(p, c.component, hitPos);
         }
-        if (Math.abs(nearB) < th && nearB * localVel.y < 0) {
-            localVel.y *= -this.bounce;
-        } else if (Math.abs(nearT) < th && nearT * localVel.y > 0) {
-            localVel.y *= -this.bounce;
-        }
-        if (Math.abs(nearF) < th && nearF * localVel.z < 0) {
-            localVel.z *= -this.bounce;
-        } else if (Math.abs(nearBk) < th && nearBk * localVel.z > 0) {
-            localVel.z *= -this.bounce;
-        }
-
-        // 4. 盒子本地速度 → 世界速度
-        Vec3.transformQuat(p.velocity, localVel, c.rotation);
     }
-}
 }

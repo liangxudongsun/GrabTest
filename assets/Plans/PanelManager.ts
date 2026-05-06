@@ -39,9 +39,10 @@ export class PanelManager {
                 const container = this._panels.get(this._order[0])?.el?.parentElement;
                 if (!container) return false;
 
-                const step = Math.max(4, Math.min(40, Math.abs(e.deltaY ?? 0) / 3));
+                                const step = Math.max(4, Math.min(40, Math.abs(e.deltaY ?? 0) / 3));
                 const dir = (e.deltaY ?? 0) > 0 ? 1 : -1;
                 this._scrollOffset = this._scrollOffset + dir * step;
+                this._clampScroll();
                 this._layout();
                 return true; // 消费事件
             };
@@ -59,7 +60,26 @@ export class PanelManager {
         this._panels.delete(id);
         const idx = this._order.indexOf(id);
         if (idx >= 0) this._order.splice(idx, 1);
+        // 限制 scrollOffset 保证底部面板可见
+        this._clampScroll();
         this._layout();
+        setTimeout(() => this._layout(), 16);
+    }
+
+    private static _clampScroll(): void {
+        const first = this._order.length > 0 ? this._panels.get(this._order[0]) : null;
+        if (!first?.el) { this._scrollOffset = 0; return; }
+        const container = first.el.parentElement;
+        if (!container) { this._scrollOffset = 0; return; }
+        const totalH = this._order.reduce((s, id) => {
+            const p = this._panels.get(id);
+            return s + (p?.el?.offsetHeight || 240) + this._gap;
+        }, 0) - this._gap;
+        const maxH = container.offsetHeight;
+        const maxUp = Math.max(totalH - maxH, 0);
+        // 允许向下滚动，但不让底部面板完全消失（留至少一个面板高度）
+        const maxDown = totalH > maxH ? maxUp + 200 : 0;
+        this._scrollOffset = Math.max(-maxDown, Math.min(maxUp + 200, this._scrollOffset));
     }
 
     static destroyAll(): void {

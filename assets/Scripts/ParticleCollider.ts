@@ -51,12 +51,12 @@ export class ParticleCollider extends Component {
         document.getElementById(panelId(this))?.remove();
         PanelManager.destroy(panelId(this));
         CCEManager.remove(panelId(this) + '-s');
-        CCEManager.add(panelId(this) + '-s', this._onSceneEvent, 'scene');
+       // CCEManager.add(panelId(this) + '-s', this._onSceneEvent, 'scene');
 
         // 用序列化值初始化 store
         this._store.set({ mode: 'box', name: 'size', x: { val: this.size.x, max: 50 }, y: { val: this.size.y, max: 50 }, z: { val: this.size.z, max: 50 }, data: { x: { val: this.R, max: 50 } }, offset: { x: { val: this.offset.x, max: 50 }, y: { val: this.offset.y, max: 50 }, z: { val: this.offset.z, max: 50 } }, rot: { x: { val: this.rotation.x, max: 360 }, y: { val: this.rotation.y, max: 360 }, z: { val: this.rotation.z, max: 360 } }, groupTag: { name: 'test2', data: String(this.group) } });
 
-        // 响应式数据变化 → 更新组件
+        // 响应式数据变化 → 更新组件 
         this._unsubStore = this._store.subscribe(d => {
             if (d.x) this.size.set(d.x.val, d.y.val, d.z.val);
             if (d.data?.x) this.R = d.data.x.val;
@@ -72,7 +72,7 @@ export class ParticleCollider extends Component {
 
     onDisable() {
         if (!EDITOR) return;
-        CCEManager.remove(panelId(this) + '-s');
+        // CCEManager.remove(panelId(this) + '-s');
         PanelManager.destroy(panelId(this));
         this._unsubStore?.();
         this._store.unsubscribeAll();
@@ -121,6 +121,7 @@ export class ParticleCollider extends Component {
         return false;
     };
 
+    /** 检测射线是否命中某个面的手柄 */
     private _raycastBox(ray: geometry.Ray): { axis: 'x' | 'y' | 'z' } | null {
         const d = this._store.get();
         const pos = this.node.worldPosition;
@@ -229,27 +230,27 @@ export class ParticleCollider extends Component {
         const off = this._store.get().offset;
         const pos = off ? new Vec3(base.x + off.x.val, base.y + off.y.val, base.z + off.z.val) : base;
         const mode = this._store.get().mode;
+        // 提取公共数据（用于盒子绘制 + 手柄）
+        const hBox = new Vec3(this.size.x / 2, this.size.y / 2, this.size.z / 2);
+        const rotData = this._store.get().rot;
+        const hasRot = rotData && (rotData.x.val || rotData.y.val || rotData.z.val);
+
         if (mode === 'sphere') {
             const radius = this._store.get().data?.x?.val ?? 1;
             gr.addSphere(pos, radius, new Color(0, 255, 0, 64), 24, true, false);
             gr.addSphere(pos, radius, this._color, 24);
         } else {
-            const h = new Vec3(this.size.x / 2, this.size.y / 2, this.size.z / 2);
-            const r = this._store.get().rot;
-            const hasRot = r && (r.x.val || r.y.val || r.z.val);
+            const fillColor = new Color(0, 255, 0, 60);
             if (hasRot) {
-                const aabb = new AABB(0, 0, 0, h.x, h.y, h.z);
-                const q = new Quat();
-                Quat.fromEuler(q, r.x.val, r.y.val, r.z.val);
-                const m = new Mat4();
-                Mat4.fromRT(m, q, pos);
-                gr.addBoundingBox(aabb, new Color(0, 255, 0, 64), false, true, false, true, m);
-                gr.addBoundingBox(aabb, this._color, true, true, false, true, m);
+                const q = new Quat(); Quat.fromEuler(q, rotData.x.val, rotData.y.val, rotData.z.val);
+                const m = new Mat4(); Mat4.fromRT(m, q, pos);
+                gr.addBoundingBox(new AABB(0,0,0,hBox.x,hBox.y,hBox.z), fillColor, false, true, true, true, m);
+                gr.addBoundingBox(new AABB(0,0,0,hBox.x,hBox.y,hBox.z), this._color, true, true, false, true, m);
             } else {
-                const aabb = new AABB(pos.x, pos.y, pos.z, h.x, h.y, h.z);
-                gr.addBoundingBox(aabb, new Color(0, 255, 0, 64), false);
-                gr.addBoundingBox(aabb, this._color, true);
+                gr.addBoundingBox(new AABB(pos.x,pos.y,pos.z,hBox.x,hBox.y,hBox.z), fillColor, false);
+                gr.addBoundingBox(new AABB(pos.x,pos.y,pos.z,hBox.x,hBox.y,hBox.z), this._color, true);
             }
         }
     }
+   
 }

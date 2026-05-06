@@ -85,16 +85,15 @@ export class CCEManager {
         };
     }
 
-    /** 统一分发：所有 panel 都执行，scene 遇 true 停止，返回 true 表示已消费 */
+    /** 统一分发：panel → scene，遇 true 停止 */
     private static _dispatch(type: string, event: any): boolean {
-        let consumed = false;
         for (const cb of this._panelCbs.values()) {
-            if (cb(type, event)) consumed = true;
+            if (cb(type, event)) return true;
         }
         for (const cb of this._sceneCbs.values()) {
             if (cb(type, event)) return true;
         }
-        return consumed;
+        return false;
     }
 }
 

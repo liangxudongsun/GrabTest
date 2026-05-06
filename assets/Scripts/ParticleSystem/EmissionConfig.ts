@@ -31,3 +31,4 @@ export class EmissionConfig {
     /** 发射厚度 [0,1] */
     shapeThickness = 1;
 }
+ 

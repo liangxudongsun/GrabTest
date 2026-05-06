@@ -1,5 +1,6 @@
-import { _decorator, Component, Vec3, Quat, Color, CurveRange, GradientRange, Material, Mesh, MeshRenderer, gfx, director, geometry, utils, editorExtrasTag } from 'cc';
+import { _decorator, Component, Vec3, Quat, Color, CurveRange, GradientRange, Material, Mesh, MeshRenderer, gfx, director, geometry, utils, editorExtrasTag, Vec4 } from 'cc';
 import { Particle } from './ParticleData';
+import { ParticleCollider } from '../ParticleCollider';
 import { EmitShape } from './EmissionConfig';
 import {
     SizeOvertimeModule,
@@ -11,13 +12,14 @@ import {
     NoiseModule,
     CollisionModule,
 } from './ParticleModules';
+import { IParticleSystem, ParticleSystemManager } from './ParticleSystemManager';
 import { EDITOR } from 'cc/env';
 
 const { ccclass, property ,executeInEditMode,playOnFocus } = _decorator;
 @ccclass('ParticleSystem')
 @executeInEditMode(true)
 
-export class ParticleSystem extends Component {
+export class ParticleSystem extends Component implements IParticleSystem{
     // ─── 容量 ───
     @property capacity = 100;
 
@@ -32,6 +34,7 @@ export class ParticleSystem extends Component {
     @property startSize = 1;
     @property startLifetime = 1;
     @property startColor = new Color(255, 255, 255, 255);
+    @property startMass = 1;
 
     // ─── 形状 ───
     @property shape: EmitShape = EmitShape.POINT;
@@ -71,6 +74,10 @@ export class ParticleSystem extends Component {
     private _playing = false;
     private _stopped = false;
 
+    // ─── 碰撞回调（外部组件可赋值监听）───
+    onParticleCollision?: (p1: Particle, p2: Particle, worldPos: Vec3) => void;
+    onParticleHitCollider?: (p: Particle, collider: ParticleCollider, worldPos: Vec3) => void;
+    
     // ─── 渲染 ───
     private _meshRenderer: MeshRenderer | null = null;
     private _mesh: Mesh | null = null;
@@ -97,11 +104,50 @@ export class ParticleSystem extends Component {
         return this._pool.filter(p => p.alive).length;
     }
 
+    /** 返回所有活跃粒子数组（供 ParticleSystemManager 读取） */
+    getAliveParticles(): Particle[] {
+        const out: Particle[] = [];
+        for (let i = 0; i < this._pool.length; i++) {
+            if (this._pool[i].alive) out.push(this._pool[i]);
+        }
+        return out;
+    }
+
+    /** 粒子间碰撞开关（桥接 CollisionModule 属性） */
+    get enableParticleCollision(): boolean { return this.collisionModule.enableParticleCollision; }
+    get enableParticleBounce(): boolean { return this.collisionModule.enableParticleBounce; }
+    get particleBounce(): number { return this.collisionModule.particleBounce; }
+
     onLoad() {
         this._initPool();
         this._initRenderer();
         this.collisionModule.refresh(this.node.scene,this.node);
         if (this.playOnAwake) this.play();
+        ParticleSystemManager.instance.registerSystem(this);
+
+        // 默认碰撞日志（外部可覆盖）
+        this.onParticleCollision = (p1, p2, pos) => {
+            p1.color4=new Vec4(0,0,0,1);
+            //p2.color4=new Vec4(0,0,0,1);
+            // console.log(
+            //     `[ParticleCollision] "${this.node.name}" 粒子碰撞 | 位置: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`,
+            //     `p1 vel: (${p1.velocity.x.toFixed(2)}, ${p1.velocity.y.toFixed(2)}, ${p1.velocity.z.toFixed(2)})`,
+            //     `p2 vel: (${p2.velocity.x.toFixed(2)}, ${p2.velocity.y.toFixed(2)}, ${p2.velocity.z.toFixed(2)})`,
+            //     `group: ${p1.group} x ${p2.group}`,
+            // );
+        };
+        this.collisionModule._owner = this;
+        this.onParticleHitCollider = (p, collider, pos) => {
+            // console.log(
+            //     `[ParticleCollider] "${this.node.name}" 粒子 → 碰撞器 "${collider.node.name}"`,
+            //     `位置: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`,
+            //     `粒子 group: ${p.group}, 碰撞器 group: ${collider.group}`,
+            // );
+        };
+    }
+
+    onDestroy() {
+        ParticleSystemManager.instance.unregisterSystem(this);
     }
 
     play() {
@@ -148,6 +194,9 @@ this._elapsed += dt;
 
         // 更新粒子
         this._updateParticles(dt);
+
+        // 跨系统粒子间碰撞由 ParticleSystemManager 在 AFTER_UPDATE 中自动处理
+
         this._updateRenderer(dt);
     }
 
@@ -337,6 +386,7 @@ this._elapsed += dt;
         p.rootWorldRot.set(this.node.worldRotation);
         p.rootWorldMat.set(this.node.worldMatrix);
         p.group = this.collisionModule.collisionLayer;
+        p.mass = this.startMass;
 
         // 速度方向随机
         const dir = new Vec3(
@@ -440,7 +490,7 @@ this._elapsed += dt;
             p.position.y += p.velocity.y * dt;
             p.position.z += p.velocity.z * dt;
 
-            // 模块
+           
             sizeMod?.apply(p);
             colorMod?.apply(p);
             velMod?.apply(p);
@@ -449,9 +499,11 @@ this._elapsed += dt;
             rotMod?.apply(p);
             noiseMod?.apply(p, dt);
             // 出生帧跳过碰撞，让粒子先出现在节点位置
+             // 模块
             if (p.age > dt + 0.0001) {
                 colMod?.apply(p);
             }
+           
         }
     }
 }

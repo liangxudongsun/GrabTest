@@ -2204,7 +2204,7 @@ export class BuiltinUiPassBuilder implements rendering.PipelinePassBuilder {
   
         
     
-        assert(!!prevRenderPass);
+        assert(!!prevRenderPass); 
 
   
 
