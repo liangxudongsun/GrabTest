@@ -85,6 +85,21 @@ export class CCEManager {
         };
     }
 
+
+    static async writeJson<T extends object>(JSON_URL: string, data: T) {
+        const Editor = (window as any).Editor;
+        if (!Editor?.Message?.request) return;
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        try {
+            await Editor.Message.request('asset-db', 'create-asset', JSON_URL, jsonStr);
+        } catch {
+            await Editor.Message.request('asset-db', 'save-asset', JSON_URL, jsonStr);
+        }
+        console.log('[writeJson] 写入成功', JSON_URL);
+    }
+
+
     /** 统一分发：panel → scene，遇 true 停止 */
     private static _dispatch(type: string, event: any): boolean {
         for (const cb of this._panelCbs.values()) {

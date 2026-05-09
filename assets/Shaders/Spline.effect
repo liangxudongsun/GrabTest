@@ -1,0 +1,55 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs:vert
+      frag: fs:frag
+      properties: &props
+     
+
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec2 v_uv;
+  out vec4 v_color;
+
+
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_uv = a_texCoord;
+    v_color=a_color;
+    return cc_matProj * (cc_matView * cc_matWorld * vertex);
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+
+  in vec2 v_uv;
+  in vec4 v_color;
+
+  uniform sampler2D _MainTex;
+
+  vec4 frag () {
+  
+    
+      return v_color;
+  
+    
+    
+  }
+}%

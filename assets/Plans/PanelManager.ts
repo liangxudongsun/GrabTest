@@ -5,6 +5,7 @@ export interface Panel {
     destroy(): void;
     sync(data: any): void;
     el: HTMLElement;
+    noLayout?: boolean;
 }
 
 /** 通用面板管理器 - 注册/获取/销毁 + 自动布局 */
@@ -113,6 +114,7 @@ export class PanelManager {
         for (let i = this._order.length - 1; i >= 0; i--) {
             const p = this._panels.get(this._order[i]);
             if (!p) continue;
+            if (p.noLayout) continue;
             p.el.style.bottom = bottom + 'px';
             p.el.style.right = '10px';
             p.el.style.top = 'auto';
