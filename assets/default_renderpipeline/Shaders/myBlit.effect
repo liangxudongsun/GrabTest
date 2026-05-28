@@ -2,37 +2,39 @@
 CCEffect %{
 techniques:
   - passes:
-      - vert: combineGrab-vs
-        frag: combineGrab-fs
-        pass: combineGrab
+      - vert: myBlit-vs
+        frag: myBlit-fs
+        pass: myBlit
         depthStencilState:
           depthTest: false
           depthWrite: false
 }%
 
 
-CCProgram combineGrab-vs %{
+CCProgram myBlit-vs %{
 #include <./chunks/vs1>
 }%
 
-CCProgram combineGrab-fs %{
+CCProgram myBlit-fs %{
 precision highp float;
 
 layout(location = 0)out vec4 fragColor;
-#pragma rate screenTex pass
-uniform sampler2D screenTex;
 
 
 
 
+// #pragma rate SpotShadowMap pass
+// uniform sampler2D SpotShadowMap;
 
 in vec2 v_uv;
 void main() {
+
+   //vec4 color=texture(SpotShadowMap,v_uv);
     
-   vec3 screenColor = texture(screenTex, v_uv).rgb;
+   
   
     
-    fragColor = vec4(screenColor.rgb, 1.0);
+    fragColor = vec4(1.,0.,0.,1.);
 }
 }%
 

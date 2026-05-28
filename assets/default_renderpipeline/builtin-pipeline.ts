@@ -35,6 +35,7 @@ import {
     makePipelineSettings,
     PipelineSettings,
 } from './builtin-pipeline-types';
+import { ShadowAtlasManager } from './ShadowAtlasManager';
 const { AABB, Sphere, intersect } = geometry;
 const { ClearFlagBit, Color, Format, FormatFeatureBit, LoadOp, StoreOp, TextureType, Viewport } = gfx;
 const { scene } = renderer;
@@ -136,6 +137,7 @@ export class CameraConfigs {
     // Window
     isMainGameWindow = false;
     renderWindowId = 0;
+    cameraId = '';
     // Camera
     colorName = '';
     depthStencilName = '';
@@ -158,12 +160,13 @@ export class CameraConfigs {
     // Depth
     /** @en mutable */
     enableStoreSceneDepth = true;
-
-
-
-
-    
-    
+    // Shadow atlas
+    spotShadowAtlasSize = 2048;
+    spotShadowMapSize = 256;
+    rangedDirShadowAtlasSize = 2048;
+    rangedDirShadowMapSize = 256;
+    sphereShadowAtlasSize = 2048;
+    sphereShadowMapSize = 256;
 }
 
 const sClearColorTransparentBlack = new Color(0, 0, 0, 0);
@@ -423,6 +426,7 @@ export interface ForwardPassConfigs {
     enableSceneBloom:boolean;
     enableBufferBloom:boolean;
     enableCopyDepth:boolean;
+    enableBasePass:boolean;
 
 }
 
@@ -471,6 +475,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         // Forward rendering (Depend on MSAA and TBR)
         cameraConfigs.enableSingleForwardPass
             = pipelineConfigs.isMobile || cameraConfigs.enableMSAA;
+        cameraConfigs.enableSingleForwardPass=false;
 
         //Grab
         cameraConfigs.enableGrab=cameraConfigs.settings.grab.enable;
@@ -483,6 +488,18 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         cameraConfigs.enableSceneBloom=cameraConfigs.settings.sceneBloomPass.enabled;
         cameraConfigs.enableBufferBloom=cameraConfigs.settings.bufferBloomPass.enabled;
         cameraConfigs.enableCopyDepth=cameraConfigs.settings.copyDepthPass.enabled;
+        cameraConfigs.enableBasePass=cameraConfigs.settings.basePass.enabled;
+
+        if(cameraConfigs.enableBasePass){
+            cameraConfigs.spotShadowAtlasSize=cameraConfigs.settings.basePass.spotShadowAtlasSize;
+            cameraConfigs.spotShadowMapSize=cameraConfigs.settings.basePass.spotShadowMapSize;
+            cameraConfigs.rangedDirShadowAtlasSize=cameraConfigs.settings.basePass.rangedDirShadowAtlasSize;
+            cameraConfigs.rangedDirShadowMapSize=cameraConfigs.settings.basePass.rangedDirShadowMapSize;
+            cameraConfigs.sphereShadowAtlasSize=cameraConfigs.settings.basePass.sphereShadowAtlasSize;
+            cameraConfigs.sphereShadowMapSize=cameraConfigs.settings.basePass.sphereShadowMapSize;
+        }
+
+       
       
         ++cameraConfigs.remainingPasses;
     }
@@ -509,7 +526,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         //:
         if(cameraConfigs.enableGrab){
            ppl.addTexture(
-    'FrameMap',
+    `FrameMap_${id}`,
     gfx.TextureType.TEX2D,
     Format.RGBA32F,
     width, height,
@@ -547,16 +564,16 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         }
 
         if(cameraConfigs.enableSceneBloom){
-            ppl.addRenderTarget(`SceneBloomMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
+            ppl.addRenderTarget(`SceneBloomMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
         }
 
         if(cameraConfigs.enableBufferBloom){
-            ppl.addRenderTarget(`BufferBloomMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
-            ppl.addRenderTarget(`BufferBloomBlurMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
+            ppl.addRenderTarget(`BufferBloomMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
+            ppl.addRenderTarget(`BufferBloomBlurMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
         }
 
         if(cameraConfigs.enableCopyDepth){
-            ppl.addRenderTarget(`DepthCopyMap`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED);
+            ppl.addRenderTarget(`DepthCopyMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED);
         }
        
        
@@ -596,20 +613,22 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
         // Spot-light shadow maps
         if (cameraConfigs.enableSingleForwardPass) {
-            const count = pplConfigs.mobileMaxSpotLightShadowMaps;
+            const size=cameraConfigs.spotShadowAtlasSize;
+            const count =4;
             for (let i = 0; i !== count; ++i) {
                 ppl.addRenderTarget(
-                    `SpotShadowMap${i}`,
+                    `SpotShadowMap_${i}_${id}`,
                     pplConfigs.shadowMapFormat,
                     pplConfigs.shadowMapSize.x,
                     pplConfigs.shadowMapSize.y,
                 );
                 ppl.addDepthStencil(
-                    `SpotShadowDepth${i}`,
+                    `DepthSpotShadowMap_${i}_${id}`,
                     Format.DEPTH_STENCIL,
                     pplConfigs.shadowMapSize.x,
                     pplConfigs.shadowMapSize.y,
                 );
+                ShadowAtlasManager.inst.addAtlas('SpotShadowMap',i,id,size);
             }
         }
     }
@@ -696,16 +715,16 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
        
          if(cameraConfigs.enableBufferBloom){
-            if(!EDITOR){
+          
                 this._addBufferBloomPass(ppl,cameraConfigs,camera,context);
-            }
+            
         }
 
 
         if(cameraConfigs.enableCopyDepth){
-            if(!EDITOR){
-                this._addCopyDepthPass(ppl, cameraConfigs, camera, context);
-            }
+          
+                this._addCopyDepthPass(ppl, cameraConfigs, camera, context,id);
+            
         }
 
 
@@ -713,10 +732,10 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
          
 
         if(cameraConfigs.enableGrab){
-            if(!EDITOR){
+          
                 if(!cameraConfigs.enableBufferBloom){
-                   this._addCopyFrameMapToScenePass(ppl, cameraConfigs, camera, context);
-                }
+                   this._addCopyFrameMapToScenePass(ppl, cameraConfigs, camera, context,id);
+                
              
               this._addGrabPass(ppl,cameraConfigs,camera,context);
             }
@@ -729,16 +748,16 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
       
 
         if(cameraConfigs.enableSceneBloom){
-            if(!EDITOR){
+           
                 this._addSceneBloomPass(ppl,cameraConfigs,camera,context)
-            }
+            
         }
 
         
         if(cameraConfigs.enableBlurPass){
-            if(!EDITOR){
-                this._addBlurPass(ppl,cameraConfigs,camera,context);
-            }
+         
+                this._addBlurPass(ppl,cameraConfigs,camera,context,id);
+            
         }
 
 
@@ -749,9 +768,9 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         // //if(!EDITOR)this._addBlurStencilPass(ppl,camera,cameraConfigs.settings.frostedGlass.blurMaterial,0,0);
        
         if(cameraConfigs.enableFrostedGlass){
-            if(!EDITOR){
+          
                 this._addFrostedGlassPass(ppl,cameraConfigs,camera,context);
-            }
+            
         }
       
       
@@ -786,15 +805,15 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         ppl: rendering.BasicPipeline,
         cameraConfigs:CameraConfigs,
         camera:renderer.scene.Camera,
-        contex:PipelineContext  
+        contex:PipelineContext 
     ): rendering.BasicRenderPassBuilder {
         const id=camera.window.renderWindowId;
         const size=new Vec2(camera.window.width,
                             camera.window.height)
         const pass=ppl.addRenderPass(size.x,size.y,'default');
         pass.name='SceneBloomThresholdPass';
-        pass.addRenderTarget('SceneBloomMap',LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
-        pass.addTexture(`FrameMap`, 'grabTex');
+        pass.addRenderTarget(`SceneBloomMap_${id}`,LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
+        pass.addTexture(`FrameMap_${id}`, 'grabTex');
         pass.setFloat('threshold',cameraConfigs.settings.sceneBloomPass.threshold);
         pass.setFloat('intensity',cameraConfigs.settings.sceneBloomPass.intensity);
          const r=cameraConfigs.settings.sceneBloomPass.bloomTintR
@@ -856,7 +875,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
     private _addBlurPass( ppl: rendering.BasicPipeline,
           cameraConfigs:CameraConfigs&ForwardPassConfigs,
           camera:renderer.scene.Camera,
-          contex:PipelineContext 
+          contex:PipelineContext,id:number
     ):rendering.BasicRenderPassBuilder|undefined{
         const sizes=cameraConfigs.settings.blurPass.sizes;
         const blurAmount=cameraConfigs.settings.blurPass.blurAmount;
@@ -869,9 +888,9 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             viewport.top=0;
             viewport.width=width;
             viewport.height=height;
-            let frmaMap='FrameMap';
+            let frmaMap= `FrameMap_${id}`;
             if(cameraConfigs.enableSceneBloom){
-                frmaMap='SceneBloomMap'
+                frmaMap=`SceneBloomMap_${id}`
             }
             const pass1=ppl.addRenderPass(width,height,'default');
             pass1.addRenderTarget(`TempBlurMap1${i}`,LoadOp.LOAD,StoreOp.STORE);
@@ -926,8 +945,8 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         pass.name='GrabPass';
         pass.addRenderTarget(contex.colorName,LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
         pass.addDepthStencil(contex.depthStencilName,LoadOp.LOAD,StoreOp.STORE)
-        pass.addTexture(`FrameMap`, 'grabTex');
-        pass.addTexture(`DepthCopyMap`,'depthTex');
+        pass.addTexture(`FrameMap_${id}`, 'grabTex');
+        pass.addTexture(`DepthCopyMap_${id}`,'depthTex');
         const viewport=this._viewport;
         viewport.left=0;
         viewport.top=0;
@@ -946,47 +965,52 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         ppl: rendering.BasicPipeline,
         cameraConfigs: CameraConfigs,
         camera: renderer.scene.Camera,
-        context: PipelineContext
+        context: PipelineContext,id:number
     ): rendering.BasicRenderPassBuilder | undefined {
        
-        const size = new Vec2(camera.window.width, camera.window.height);
-        const pass = ppl.addRenderPass(size.x, size.y, 'default');
-        pass.name = 'CopyDepthPass';
-        pass.addRenderTarget('DepthCopyMap', LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-        //pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-        pass.addTexture(context.depthStencilName, 'depthTex');
-        const viewport = this._viewport;
-        viewport.left = 0;
-        viewport.top = 0;
-        viewport.width = size.x;
-        viewport.height = size.y;
-        pass.setViewport(viewport);
-        pass.addQueue(rendering.QueueHint.NONE,'depthCopy-caster')
-            .addScene(camera,rendering.SceneFlags.OPAQUE)
-        return pass;
+        // const size = new Vec2(camera.window.width, camera.window.height);
+        // const pass = ppl.addRenderPass(size.x, size.y, 'default');
+        // pass.name = 'CopyDepthPass';
+        // pass.addRenderTarget(`DepthCopyMap_${id}`, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
+        // //pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
+        // pass.addTexture(context.depthStencilName, 'depthTex');
+        // const viewport = this._viewport;
+        // viewport.left = 0;
+        // viewport.top = 0;
+        // viewport.width = size.x;
+        // viewport.height = size.y;
+        // pass.setViewport(viewport);
+        // pass.addQueue(rendering.QueueHint.NONE,'depthCopy-caster')
+        //     .addScene(camera,rendering.SceneFlags.OPAQUE)
+        // return pass;
+        ppl.addCopyPass([new rendering.CopyPair(context.depthStencilName,`DepthCopyMap_${id}`)])
+        return
     }
 
     private _addCopyFrameMapToScenePass(
         ppl: rendering.BasicPipeline,
         cameraConfigs: CameraConfigs,
         camera: renderer.scene.Camera,
-        context: PipelineContext
+        context: PipelineContext,id:number
     ): rendering.BasicRenderPassBuilder | undefined {
-        const size = new Vec2(camera.window.width, camera.window.height);
-        const pass = ppl.addRenderPass(size.x, size.y, 'default');                 
-        pass.name = 'CopyFrameMapToScenePass';
-        pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
-        //pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
-        pass.addTexture('FrameMap', 'grabTex');
-        const viewport = this._viewport;
-        viewport.left = 0;
-        viewport.top = 0;
-        viewport.width = size.x;
-        viewport.height = size.y;
-        pass.setViewport(viewport);
-        pass.addQueue(rendering.QueueHint.OPAQUE,'screenCopy-caster')
-            .addScene(camera,rendering.SceneFlags.OPAQUE)
-        return pass;
+        // const size = new Vec2(camera.window.width, camera.window.height);
+        // const pass = ppl.addRenderPass(size.x, size.y, 'default');                 
+        // pass.name = 'CopyFrameMapToScenePass';
+        // pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
+        // //pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
+        // pass.addTexture(`FrameMap_${id}`, 'grabTex');
+        // const viewport = this._viewport;
+        // viewport.left = 0;
+        // viewport.top = 0;
+        // viewport.width = size.x;
+        // viewport.height = size.y;
+        // pass.setViewport(viewport);
+        // pass.addQueue(rendering.QueueHint.OPAQUE,'screenCopy-caster')
+        //     .addScene(camera,rendering.SceneFlags.OPAQUE)
+        // return pass;
+
+         ppl.addCopyPass([new rendering.CopyPair(`FrameMap_${id}`,context.colorName)])
+        return
     }
 
     private _addCascadedShadowMapPass(
@@ -1347,8 +1371,8 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         // bind output render target
         let color0Name=''
         let depthStencil0Name=depthStencilName
-        if(!EDITOR&&cameraConfigs.enableGrab){
-            color0Name='FrameMap'
+        if(cameraConfigs.enableGrab){
+            color0Name= `FrameMap_${id}`
             //depthStencil0Name='FrameDepthMap'
         }else{
              color0Name=colorName
@@ -1400,7 +1424,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         // add opaque and mask queue
         pass.addQueue(QueueHint.NONE) // Currently we put OPAQUE and MASK into one queue, so QueueHint is NONE
             .addScene(camera,
-                SceneFlags.OPAQUE | SceneFlags.MASK,
+                SceneFlags.OPAQUE | SceneFlags.MASK|SceneFlags.UI,
                 mainLight || undefined,
                 scene ? scene : undefined);
         
@@ -1443,7 +1467,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         const pass = ppl.addRenderPass(size.x, size.y, 'default');
         pass.name = 'BufferBloomPass';
 
-        pass.addRenderTarget('BufferBloomMap', LoadOp.LOAD, StoreOp.STORE);
+        pass.addRenderTarget(`BufferBloomMap_${id}`, LoadOp.LOAD, StoreOp.STORE);
         pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
         const viewport = this._viewport;
         viewport.left = 0;
@@ -1458,8 +1482,8 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         const pass1 = ppl.addRenderPass(size.x, size.y, 'default');
         pass1.name = 'BufferBloomBlurPass';
 
-        pass1.addRenderTarget('BufferBloomBlurMap', LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
-        pass1.addTexture('BufferBloomMap',`bloomMap`);
+        pass1.addRenderTarget(`BufferBloomBlurMap_${id}`, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
+        pass1.addTexture(`BufferBloomMap_${id}`,`bloomMap`);
         pass1.setViewport(viewport);
         pass1.addQueue(rendering.QueueHint.NONE,'bufferBloomBlur-caster')
         .addScene(camera,rendering.SceneFlags.OPAQUE);
@@ -1469,9 +1493,9 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         pass2.name = 'BufferBloomCombinePass';
 
         pass2.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
-        pass2.addTexture('BufferBloomMap',`bloomMap`); 
-        pass2.addTexture('BufferBloomBlurMap',`bloomBlurMap`);
-        pass2.addTexture('FrameMap','FrameMap');//一传入就报错
+        pass2.addTexture(`BufferBloomMap_${id}`,`bloomMap`); 
+        pass2.addTexture(`BufferBloomBlurMap_${id}`,`bloomBlurMap`);
+        pass2.addTexture(`FrameMap_${id}`,'FrameMap');//一传入就报错
         
         pass2.setViewport(viewport);
         pass2.addQueue(rendering.QueueHint.NONE,'bufferBloomCombine-caster')
@@ -2240,7 +2264,13 @@ if (rendering) {
         private readonly _clearColor = new Color(0, 0, 0, 1);
         private readonly _viewport = new Viewport();
         private readonly _configs = new PipelineConfigs();
-        private readonly _cameraConfigs = new CameraConfigs();
+        private readonly _cameraConfigsMap = new Map<string, CameraConfigs>();
+        private _getCameraConfigs(camera: renderer.scene.Camera): CameraConfigs {
+            const key = camera.node.uuid + camera.window.renderWindowId;
+            let c = this._cameraConfigsMap.get(key);
+            if (!c) { c = new CameraConfigs(); this._cameraConfigsMap.set(key, c); }
+            return c;
+        }
         // Materials
         private readonly _copyAndTonemapMaterial = new Material();
 
@@ -2351,22 +2381,22 @@ if (rendering) {
 
             // Depth
             cameraConfigs.enableStoreSceneDepth = true;
+            // Shadow atlas settings
+            
         }
 
         private _setupCameraConfigs(
             ppl: rendering.BasicPipeline,
             camera: renderer.scene.Camera,
             pipelineConfigs: PipelineConfigs,
-            cameraConfigs: CameraConfigs
         ): void {
+            const cameraConfigs = this._getCameraConfigs(camera);
+            cameraConfigs.cameraId = camera.node.uuid + camera.window.renderWindowId;
+            cameraConfigs.renderWindowId = camera.window.renderWindowId;
             this._setupPipelinePreview(camera, cameraConfigs);
-
             this._preparePipelinePasses(cameraConfigs);
-
             sortPipelinePassBuildersByConfigOrder(this._passBuilders);
-
             this._setupBuiltinCameraConfigs(ppl, camera, pipelineConfigs, cameraConfigs);
-
             for (const builder of this._passBuilders) {
                 if (builder.configCamera) {
                     builder.configCamera(camera, pipelineConfigs, cameraConfigs);
@@ -2386,28 +2416,28 @@ if (rendering) {
         ): void {
             setupPipelineConfigs(ppl, this._configs);
 
-            this._setupCameraConfigs(ppl, camera, this._configs, this._cameraConfigs);
+            this._setupCameraConfigs(ppl, camera, this._configs);
 
             // Render Window (UI)
             const id = window.renderWindowId;
 
-            ppl.addRenderWindow(this._cameraConfigs.colorName,
+            ppl.addRenderWindow(this._getCameraConfigs(camera).colorName,
                 Format.RGBA8, nativeWidth, nativeHeight, window,
-                this._cameraConfigs.depthStencilName);
+                this._getCameraConfigs(camera).depthStencilName);
 
-            const width = this._cameraConfigs.width;
-            const height = this._cameraConfigs.height;
+            const width = this._getCameraConfigs(camera).width;
+            const height = this._getCameraConfigs(camera).height;
 
-            if (this._cameraConfigs.enableShadingScale) {
+            if (this._getCameraConfigs(camera).enableShadingScale) {
                 ppl.addDepthStencil(`ScaledSceneDepth_${id}`, Format.DEPTH_STENCIL, width, height);
-                ppl.addRenderTarget(`ScaledRadiance0_${id}`, this._cameraConfigs.radianceFormat, width, height);
-                ppl.addRenderTarget(`ScaledRadiance1_${id}`, this._cameraConfigs.radianceFormat, width, height);
+                ppl.addRenderTarget(`ScaledRadiance0_${id}`, this._getCameraConfigs(camera).radianceFormat, width, height);
+                ppl.addRenderTarget(`ScaledRadiance1_${id}`, this._getCameraConfigs(camera).radianceFormat, width, height);
                 ppl.addRenderTarget(`ScaledLdrColor0_${id}`, Format.RGBA8, width, height);
                 ppl.addRenderTarget(`ScaledLdrColor1_${id}`, Format.RGBA8, width, height);
             } else {
                 ppl.addDepthStencil(`SceneDepth_${id}`, Format.DEPTH_STENCIL, width, height);
-                ppl.addRenderTarget(`Radiance0_${id}`, this._cameraConfigs.radianceFormat, width, height);
-                ppl.addRenderTarget(`Radiance1_${id}`, this._cameraConfigs.radianceFormat, width, height);
+                ppl.addRenderTarget(`Radiance0_${id}`, this._getCameraConfigs(camera).radianceFormat, width, height);
+                ppl.addRenderTarget(`Radiance1_${id}`, this._getCameraConfigs(camera).radianceFormat, width, height);
                 ppl.addRenderTarget(`LdrColor0_${id}`, Format.RGBA8, width, height);
                 ppl.addRenderTarget(`LdrColor1_${id}`, Format.RGBA8, width, height);
                 
@@ -2418,10 +2448,11 @@ if (rendering) {
 
             for (const builder of this._passBuilders) {
                 if (builder.windowResize) {
-                    builder.windowResize(ppl, this._configs, this._cameraConfigs, window, camera, nativeWidth, nativeHeight);
+                    builder.windowResize(ppl, this._configs, this._getCameraConfigs(camera), window, camera, nativeWidth, nativeHeight);
                 }
             }
         }
+        tt=0;
         setup(cameras: renderer.scene.Camera[], ppl: rendering.BasicPipeline): void {
             // TODO(zhouzhenglong): Make default effect asset loading earlier and remove _initMaterials
             if (this._initMaterials(ppl)) {
@@ -2436,18 +2467,30 @@ if (rendering) {
                     continue;
                 }
                 // Setup camera configs
-                this._setupCameraConfigs(ppl, camera, this._configs, this._cameraConfigs);
-                // log(`Setup camera: ${camera.node!.name}, window: ${camera.window.renderWindowId}, isFull: ${this._cameraConfigs.enableFullPipeline}, `
+                this._setupCameraConfigs(ppl, camera, this._configs);
+                // log(`Setup camera: ${camera.node!.name}, window: ${camera.window.renderWindowId}, isFull: ${this._getCameraConfigs(camera).enableFullPipeline}, `
                 //     + `size: ${camera.window.width}x${camera.window.height}`);
 
                 this._pipelineEvent.emit(PipelineEventType.RENDER_CAMERA_BEGIN, camera);
 
-                // Build pipeline
-                if (this._cameraConfigs.enableFullPipeline) {
-                    this._buildForwardPipeline(ppl, camera, camera.scene, this._passBuilders);
-                } else {
-                    this._buildSimplePipeline(ppl, camera);
+                if(EDITOR){
+                     if(camera.node.name=='Editor Camera'&&this._getCameraConfigs(camera).enableFullPipeline){
+                         this._buildForwardPipeline(ppl, camera, camera.scene, this._passBuilders);
+                     }else{
+                         this._buildSimplePipeline(ppl, camera);
+                     }
+                }else{
+                        // Build pipeline
+                    if (this._getCameraConfigs(camera).enableFullPipeline) {
+                        this._buildForwardPipeline(ppl, camera, camera.scene, this._passBuilders);
+                    } else {
+                        this._buildSimplePipeline(ppl, camera);
+                    }
+                    
                 }
+
+                // Build pipeline
+              
 
                 this._pipelineEvent.emit(PipelineEventType.RENDER_CAMERA_END, camera);
             }
@@ -2461,8 +2504,8 @@ if (rendering) {
         ): void {
             const width = Math.max(Math.floor(camera.window.width), 1);
             const height = Math.max(Math.floor(camera.window.height), 1);
-            const colorName = this._cameraConfigs.colorName;
-            const depthStencilName = this._cameraConfigs.depthStencilName;
+            const colorName = this._getCameraConfigs(camera).colorName;
+            const depthStencilName = this._getCameraConfigs(camera).depthStencilName;
 
             const viewport = camera.viewport;  // Reduce C++/TS interop
             this._viewport.left = Math.round(viewport.x * width);
@@ -2509,7 +2552,7 @@ if (rendering) {
 
             // The blend queue is used for UI and Gizmos
             let flags = SceneFlags.BLEND | SceneFlags.UI;
-            if (this._cameraConfigs.enableProfiler) {
+            if (this._getCameraConfigs(camera).enableProfiler) {
                 flags |= SceneFlags.PROFILER;
                 pass.showStatistics = true;
             }
@@ -2540,12 +2583,12 @@ if (rendering) {
 
             for (const builder of passBuilders) {
                 if (builder.setup) {
-                    lastPass = builder.setup(ppl, this._configs, this._cameraConfigs,
+                    lastPass = builder.setup(ppl, this._configs, this._getCameraConfigs(camera),
                         camera, context, lastPass);
                 }
             }
 
-            assert(this._cameraConfigs.remainingPasses === 0);
+            assert(this._getCameraConfigs(camera).remainingPasses === 0);
         }
 
         private _initMaterials(ppl: rendering.BasicPipeline): number {

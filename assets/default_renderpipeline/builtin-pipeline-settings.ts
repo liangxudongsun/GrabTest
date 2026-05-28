@@ -477,6 +477,91 @@ export class BuiltinPipelineSettings extends Component {
         return this._settings.grab.enable;
     }
 
+    // BasePass
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: CCBoolean,
+    })
+    set basePassEnabled(value: boolean) {
+        this._settings.basePass.enabled = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get basePassEnabled(): boolean {
+        return this._settings.basePass.enabled;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set spotShadowAtlasSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.spotShadowAtlasSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get spotShadowAtlasSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.spotShadowAtlasSize;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set spotShadowMapSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.spotShadowMapSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get spotShadowMapSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.spotShadowMapSize;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set rangedDirShadowAtlasSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.rangedDirShadowAtlasSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get rangedDirShadowAtlasSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.rangedDirShadowAtlasSize;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set rangedDirShadowMapSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.rangedDirShadowMapSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get rangedDirShadowMapSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.rangedDirShadowMapSize;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set sphereShadowAtlasSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.sphereShadowAtlasSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get sphereShadowAtlasSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.sphereShadowAtlasSize;
+    }
+
+    @property({
+        group: { id: 'BasePass', name: 'Base Pass', style: 'section' },
+        type: builtinPipelineTypes.ShadowMapSize,
+    })
+    set sphereShadowMapSize(value: builtinPipelineTypes.ShadowMapSize) {
+        this._settings.basePass.sphereShadowMapSize = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get sphereShadowMapSize(): builtinPipelineTypes.ShadowMapSize {
+        return this._settings.basePass.sphereShadowMapSize;
+    }
+
     // Frosted Glass
     @property({
         group: { id: 'FrostedGlass', name: 'Frosted Glass (PostProcessing)', style: 'section' },
@@ -823,6 +908,34 @@ export class BuiltinPipelineSettings extends Component {
     }
     get sceneBloomTintB(): number {
         return this._settings.sceneBloomPass.bloomTintB;
+    }
+
+    // BlitPass
+    @property({
+        tooltip: '启用 Blit Pass',
+        group: { id: 'BlitPass', name: 'BlitPass', style: 'section' },
+        type: CCBoolean,
+    })
+    set blitPassEnable(value: boolean) {
+        this._settings.blitPass.enabled = value;
+        if (EDITOR) {
+            this._tryEnableEditorPreview();
+        }
+    }
+    get blitPassEnable(): boolean {
+        return this._settings.blitPass.enabled;
+    }
+
+    @property({
+        tooltip: 'Blit Pass 材质',
+        group: { id: 'BlitPass', name: 'BlitPass', style: 'section' },
+        type: Material,
+    })
+    set blitPassMaterial(value: Material) {
+        this._settings.blitPass.material = value;
+    }
+    get blitPassMaterial(): Material {
+        return this._settings.blitPass.material!;
     }
 
     @property({

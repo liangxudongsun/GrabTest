@@ -60,7 +60,28 @@ export interface ForwardPassConfigs {
     enablePlanarReflectionProbe: boolean; /* false */
     enableMSAA: boolean; /* false */
     enableSingleForwardPass: boolean; /* false */
+    spotShadowMapSize: number; /* 256 */
     [name: string]: unknown;
+}
+
+export function makeForwardPassConfigs(): ForwardPassConfigs {
+    return {
+        enableMainLightShadowMap: false,
+        enableMainLightPlanarShadowMap: false,
+        enablePlanarReflectionProbe: false,
+        enableMSAA: false,
+        enableSingleForwardPass: false,
+        spotShadowMapSize: 256,
+    };
+}
+
+export function fillRequiredForwardPassConfigs(value: ForwardPassConfigs): void {
+    if (value.enableMainLightShadowMap === undefined) value.enableMainLightShadowMap = false;
+    if (value.enableMainLightPlanarShadowMap === undefined) value.enableMainLightPlanarShadowMap = false;
+    if (value.enablePlanarReflectionProbe === undefined) value.enablePlanarReflectionProbe = false;
+    if (value.enableMSAA === undefined) value.enableMSAA = false;
+    if (value.enableSingleForwardPass === undefined) value.enableSingleForwardPass = false;
+    if (value.spotShadowMapSize === undefined) value.spotShadowMapSize = 256;
 }
 
 export interface HBAO {
@@ -284,6 +305,72 @@ export function fillRequiredGrab(value: Grab):void{
     }
 }
 
+export enum ShadowMapSize {
+    _64 = 64,
+    _128 = 128,
+    _256 = 256,
+    _512 = 512,
+    _1024 = 1024,
+    _2048 = 2048,
+    _4096 = 4096,
+}
+ccenum(ShadowMapSize);
+
+export interface BasePass {
+    enabled: boolean;
+    spotShadowAtlasSize: ShadowMapSize; /* ShadowMapSize._1024 */
+    spotShadowMapSize: ShadowMapSize; /* ShadowMapSize._256 */
+    rangedDirShadowAtlasSize: ShadowMapSize; /* ShadowMapSize._1024 */
+    rangedDirShadowMapSize: ShadowMapSize; /* ShadowMapSize._256 */
+    sphereShadowAtlasSize: ShadowMapSize; /* ShadowMapSize._1024 */
+    sphereShadowMapSize: ShadowMapSize; /* ShadowMapSize._256 */
+    [name: string]: unknown;
+}
+
+export function makeBasePass(): BasePass {
+    return {
+        enabled: false,
+        spotShadowAtlasSize: ShadowMapSize._1024,
+        spotShadowMapSize: ShadowMapSize._256,
+        rangedDirShadowAtlasSize: ShadowMapSize._1024,
+        rangedDirShadowMapSize: ShadowMapSize._256,
+        sphereShadowAtlasSize: ShadowMapSize._1024,
+        sphereShadowMapSize: ShadowMapSize._256,
+    };
+}
+
+export function fillRequiredBasePass(value: BasePass): void {
+    if (value.enabled === undefined) value.enabled = false;
+    if (value.spotShadowAtlasSize === undefined) value.spotShadowAtlasSize = ShadowMapSize._1024;
+    if (value.spotShadowMapSize === undefined) value.spotShadowMapSize = ShadowMapSize._256;
+    if (value.rangedDirShadowAtlasSize === undefined) value.rangedDirShadowAtlasSize = ShadowMapSize._1024;
+    if (value.rangedDirShadowMapSize === undefined) value.rangedDirShadowMapSize = ShadowMapSize._256;
+    if (value.sphereShadowAtlasSize === undefined) value.sphereShadowAtlasSize = ShadowMapSize._1024;
+    if (value.sphereShadowMapSize === undefined) value.sphereShadowMapSize = ShadowMapSize._256;
+}
+
+export interface BlitPass {
+    enabled: boolean;
+    material: Material | null;
+    [name: string]: unknown;
+}
+
+export function makeBlitPass(): BlitPass {
+    return {
+        enabled: false,
+        material: null,
+    };
+}
+
+export function fillRequiredBlitPass(value: BlitPass): void {
+    if (value.enabled === undefined) {
+        value.enabled = false;
+    }
+    if (value.material === undefined) {
+        value.material = null;
+    }
+}
+
 export interface FrostedGlass {
     enabled: boolean;
     /* refcount */ blurMaterial: Material | null;
@@ -464,9 +551,11 @@ export interface PipelineSettings {
     readonly fsr: FSR;
     readonly fxaa: FXAA;
     readonly grab: Grab;
+    readonly basePass: BasePass;
     readonly frostedGlass: FrostedGlass;
     readonly blurPass: BlurPass;
     readonly bufferBloomPass: BufferBloomPass;
+    readonly blitPass: BlitPass;
     readonly sceneBloomPass: SceneBloomPass;
     readonly copyDepthPass: CopyDepthPass;
     [name: string]: unknown;
@@ -483,9 +572,11 @@ export function makePipelineSettings(): PipelineSettings {
         fsr: makeFSR(),
         fxaa: makeFXAA(),
         grab: makeGrab(),
+        basePass: makeBasePass(),
         frostedGlass: makeFrostedGlass(),
         blurPass: makeBlurPass(),
         bufferBloomPass: makeBufferBloomPass(),
+        blitPass: makeBlitPass(),
         sceneBloomPass: makeSceneBloomPass(),
         copyDepthPass: makeCopyDepthPass(),
     };
@@ -535,6 +626,12 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         fillRequiredGrab(value.grab);
     }
 
+    if (!value.basePass) {
+        (value.basePass as BasePass) = makeBasePass();
+    } else {
+        fillRequiredBasePass(value.basePass);
+    }
+
     if (!value.frostedGlass) {
         (value.frostedGlass as FrostedGlass) = makeFrostedGlass();
     } else {
@@ -551,6 +648,12 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         (value.bufferBloomPass as BufferBloomPass) = makeBufferBloomPass();
     } else {
         fillRequiredBufferBloomPass(value.bufferBloomPass);
+    }
+
+    if (!value.blitPass) {
+        (value.blitPass as BlitPass) = makeBlitPass();
+    } else {
+        fillRequiredBlitPass(value.blitPass);
     }
 
     if (!value.sceneBloomPass) {
