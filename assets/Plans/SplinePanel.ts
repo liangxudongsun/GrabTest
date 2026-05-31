@@ -1,4 +1,4 @@
-import { PopupPanel, PopupPanelOptions } from './模板/PopupPanel';
+import { PopupPanel, PopupPanelOptions } from './Template/PopupPanel';
 
 /** 样条控制点弹出框 - 基于 PopupPanel 模板 */
 export class SplinePanel extends PopupPanel {

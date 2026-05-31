@@ -1,7 +1,13 @@
 {
-  "name": "NewProject3.8.8",
-  "uuid": "96406c96-44e9-4c72-90ea-ed8fa7c218d4",
-  "creator": {
-    "version": "3.8.8"
-  }
+    "name": "NewProject3.8.8",
+    "type": "3d",
+    "version": "unknow",
+    "uuid": "96406c96-44e9-4c72-90ea-ed8fa7c218d4",
+    "creator": {
+        "version": "3.8.8"
+    },
+    "pink": {
+        "uuid": "5280a572-5780-4377-97cc-1641ad2d40ce",
+        "version": "1.110.1"
+    }
 }

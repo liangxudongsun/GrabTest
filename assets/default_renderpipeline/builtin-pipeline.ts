@@ -314,23 +314,36 @@ class ForwardLighting {
         ppl: rendering.BasicPipeline,
         camera: renderer.scene.Camera,
         maxNumShadowMaps: number,
+        cameraConfigs: Readonly<CameraConfigs & ForwardPassConfigs>
     ): void {
+        const atlasSize = cameraConfigs.spotShadowAtlasSize;
+        const shadowSize = cameraConfigs.spotShadowMapSize;
         let i = 0;
         for (const light of this.shadowEnabledSpotLights) {
-            const shadowMapSize = ppl.pipelineSceneData.shadows.size;
-            const shadowPass = ppl.addRenderPass(shadowMapSize.x, shadowMapSize.y, 'default');
-            shadowPass.name = `SpotLightShadowPass${i}`;
-            shadowPass.addRenderTarget(`SpotShadowMap${i}`, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-            shadowPass.addDepthStencil(`SpotShadowDepth${i}`, LoadOp.CLEAR, StoreOp.DISCARD);
+            const uuid = light.node!.uuid;
+            const view = ShadowAtlasManager.inst.getShadowView(uuid, 'SpotShadowMap', shadowSize);
+           
+            if (!view) break;
+            const shadowPass = ppl.addRenderPass(atlasSize, atlasSize, 'default');
+            shadowPass.name = `SpotLightShadow_${uuid}`;
+            shadowPass.addRenderTarget(view.atlasName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
+            shadowPass.addDepthStencil(`Depth${view.atlasName}`,  LoadOp.CLEAR, StoreOp.STORE,1);
+            const vp = new Viewport(view.view.x, view.view.y, view.view.width, view.view.height);
+            shadowPass.setViewport(vp);
+            const packing = pipeline.supportsR32FloatTexture(ppl.device) ? 0.0 : 1.0;
+            //this._shadowNFLSInfo.set(0.01, light.range, 0.0, 0.0);
+            //shadowPass.setVec4('cc_shadowNFLSInfo', this._shadowNFLSInfo);
+            //this._shadowLPNNInfo.set(LightType.SPOT, packing, 0.0, 0.0);
+            //shadowPass.setVec4('cc_shadowLPNNInfo', this._shadowLPNNInfo);
             shadowPass.addQueue(rendering.QueueHint.NONE, 'shadow-caster')
                 .addScene(camera, rendering.SceneFlags.OPAQUE | rendering.SceneFlags.MASK | rendering.SceneFlags.SHADOW_CASTER)
                 .useLightFrustum(light);
             ++i;
-            if (i >= maxNumShadowMaps) {
-                break;
-            }
+            //if (cameraConfigs.enableSingleForwardPass && i >= maxNumShadowMaps) break;
         }
     }
+
+    //废弃
     public addLightQueues(pass: rendering.BasicRenderPassBuilder,
         camera: renderer.scene.Camera, maxNumShadowMaps: number): void {
         this._addLightQueues(camera, pass);
@@ -339,7 +352,7 @@ class ForwardLighting {
             // Add spot-light pass
             // Save last RenderPass to the `pass` variable
             // TODO(zhouzhenglong): Fix per queue addTexture
-            pass.addTexture(`SpotShadowMap${i}`, 'cc_spotShadowMap');
+            //pass.addTexture(`cc_spotShadowMap`, 'cc_spotShadowMap');//图集模式暂不绑定
             const queue = pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
             queue.addScene(camera, rendering.SceneFlags.BLEND, light);
             ++i;
@@ -352,7 +365,7 @@ class ForwardLighting {
     // Notice: ForwardLighting cannot handle a lot of lights.
     // If there are too many lights, the performance will be very poor.
     // If many lights are needed, please implement a forward+ or deferred rendering pipeline.
-    public addLightPasses(
+    public addLightPasses(//叠加多光源
         colorName: string,
         depthStencilName: string,
         depthStencilStoreOp: gfx.StoreOp,
@@ -363,40 +376,39 @@ class ForwardLighting {
         viewport: gfx.Viewport,
         ppl: rendering.BasicPipeline,
         pass: rendering.BasicRenderPassBuilder,
-    ): rendering.BasicRenderPassBuilder {
+        cameraConfigs?: CameraConfigs,
+    ): rendering.BasicRenderPassBuilder|undefined {
         this._addLightQueues(camera, pass);
+        let count=0;
 
-        let count = 0;
-        const shadowMapSize = ppl.pipelineSceneData.shadows.size;
         for (const light of this.shadowEnabledSpotLights) {
-            const shadowPass = ppl.addRenderPass(shadowMapSize.x, shadowMapSize.y, 'default');
-            shadowPass.name = 'SpotlightShadowPass';
-            // Reuse csm shadow map
-            shadowPass.addRenderTarget(`ShadowMap${id}`, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-            shadowPass.addDepthStencil(`ShadowDepth${id}`, LoadOp.CLEAR, StoreOp.DISCARD);
-            shadowPass.addQueue(rendering.QueueHint.NONE, 'shadow-caster')
-                .addScene(camera, rendering.SceneFlags.OPAQUE | rendering.SceneFlags.MASK | rendering.SceneFlags.SHADOW_CASTER)
-                .useLightFrustum(light);
+            const uuid = light.node!.uuid;
+            const shadowSize =cameraConfigs.spotShadowMapSize ;
+            const view = ShadowAtlasManager.inst.getShadowView(uuid, 'SpotShadowMap', shadowSize);
+            if (!view) break;
 
-            // Add spot-light pass
-            // Save last RenderPass to the `pass` variable
-            ++count;
-            const storeOp = count === this.shadowEnabledSpotLights.length
-                ? depthStencilStoreOp
-                : StoreOp.STORE;
-
-            pass = ppl.addRenderPass(width, height, 'default');
-            pass.name = 'SpotlightWithShadowMap';
-            pass.setViewport(viewport);
-            pass.addRenderTarget(colorName, LoadOp.LOAD);
-            pass.addDepthStencil(depthStencilName, LoadOp.LOAD, storeOp);
-            pass.addTexture(`ShadowMap${id}`, 'cc_spotShadowMap');
-            const queue = pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
+            let _pass = ppl.addRenderPass(width, height, 'default');
+            _pass.name = 'SpotlightWithShadowMap';
+            _pass.setViewport(viewport);
+            _pass.addRenderTarget(colorName, LoadOp.LOAD,StoreOp.STORE);
+            _pass.addDepthStencil(depthStencilName, LoadOp.LOAD, StoreOp.STORE);
+            _pass.addTexture(view.atlasName, 'cc_spotShadowMap');
+            _pass.setVec4('custom_atlasUV', view.uv);
+            const queue = _pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
             queue.addScene(
                 camera,
                 rendering.SceneFlags.BLEND,
                 light,
             );
+
+           count++;
+           if(count=== this.shadowEnabledSpotLights.length){
+            pass=_pass;
+           }
+
+            
+
+            
         }
         return pass;
     }
@@ -612,7 +624,8 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         );
 
         // Spot-light shadow maps
-        if (cameraConfigs.enableSingleForwardPass) {
+
+        if (cameraConfigs.enableBasePass) {
             const size=cameraConfigs.spotShadowAtlasSize;
             const count =4;
             for (let i = 0; i !== count; ++i) {
@@ -677,11 +690,11 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
          
 
         // // Spot light shadow maps (Mobile or MSAA)
-        if (cameraConfigs.enableSingleForwardPass) {
+        if (cameraConfigs.enableBasePass) {
             // Currently, only support 1 spot light with shadow map on mobile platform.
             // TODO(zhouzhenglong): Relex this limitation.
             this.forwardLighting.addSpotlightShadowPasses(
-                ppl, camera, pplConfigs.mobileMaxSpotLightShadowMaps);
+                ppl, camera, pplConfigs.mobileMaxSpotLightShadowMaps,cameraConfigs);
         }
         
 
@@ -1336,16 +1349,25 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         const firstStoreOp = this.forwardLighting.isMultipleLightPassesNeeded()
             ? StoreOp.STORE
             : depthStencilStoreOp;
-
+        //不透明渲染
         this._buildForwardMainLightPass(pass, cameraConfigs,
             id, camera, colorName, depthStencilName, firstStoreOp, mainLight);
+        
+        if(cameraConfigs.enableGrab){
+            colorName=`FrameMap_${id}`
+        }
+     
+
+        if(cameraConfigs.enableBasePass){
+           pass=this.forwardLighting
+               .addLightPasses(`FrameMap_${id}`, depthStencilName, depthStencilStoreOp,
+               id, width, height, camera, this._viewport, ppl, pass, cameraConfigs);
+        }
+     
 
         
-
         // Forward Lighting (Additive Lights)
-        pass = this.forwardLighting
-            .addLightPasses(colorName, depthStencilName, depthStencilStoreOp,
-                id, width, height, camera, this._viewport, ppl, pass);
+       
 
         return pass;
     }

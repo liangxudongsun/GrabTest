@@ -11,13 +11,17 @@
   "_techIdx": 0,
   "_defines": [
     {
+      "USE_ALPHA_TEST": true,
       "USE_TEXTURE": true
     }
   ],
   "_states": [
     {
       "rasterizerState": {},
-      "depthStencilState": {},
+      "depthStencilState": {
+        "depthTest": true,
+        "depthWrite": true
+      },
       "blendState": {
         "targets": [
           {}

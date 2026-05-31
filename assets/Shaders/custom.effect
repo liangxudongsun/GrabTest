@@ -1,0 +1,317 @@
+// Effect Syntax Guide: https://docs.cocos.com/creator/manual/zh/shader/index.html
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vs-main:vert
+      frag: fs-main:frag
+      depthStencilState:
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: true
+      properties:
+        _Color: { value: [1, 1, 1, 1], editor: { type: color } }
+    - vert: vs-other:vert
+      frag: fs-other:frag
+      phase: forward-add
+      depthStencilState:
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: one
+          blendDst: one
+      properties:
+        _Color: { value: [1, 1, 1, 1], editor: { type: color } }
+    - &shadow-caster
+      vert: shadow-caster-vs:vert
+      frag: shadow-caster-fs:frag
+      phase: shadow-caster
+      rasterizerState:
+        cullMode: front
+}%
+
+CCProgram vs-main %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    v_worldNormal = mat3(cc_matWorldIT) * a_normal;
+    return cc_matProj * cc_matView * vec4(v_worldPos, 1.0);
+  }
+}%
+
+CCProgram fs-main %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-shadow>
+  #include <builtin/uniforms/cc-shadow-map>
+  #pragma define CC_RECEIVE_SHADOW 1
+  #include <builtin/functionalities/shadow-map>
+
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+
+  uniform ConstantF {
+    vec4 _Color;
+  };
+
+  vec4 frag () {
+    vec3 worldNormal = normalize(v_worldNormal);
+    vec3 worldLightDir = normalize(-cc_mainLitDir.xyz);
+    float NdotL = max(dot(worldNormal, worldLightDir), 0.0);
+    // 主平行光阴影（CSM级联自动选择）
+    float shadow = 1.0;
+    if (NdotL > 0.0) {
+      shadow = CCCSMFactorBase(v_worldPos.xyz, worldNormal.xyz, vec2(0.0));
+    }
+    vec3 diffuse = cc_mainLitColor.rgb * _Color.rgb * NdotL *shadow;
+    vec3 ambient = cc_ambientSky.rgb * _Color.rgb;
+     //return CCFragOutput(vec4(0.,0.,1.,1.));
+    return CCFragOutput(vec4(ambient + diffuse, 1.));
+  }
+}%
+
+CCProgram vs-other %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+
+  vec4 vert () {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    v_worldNormal = mat3(cc_matWorldIT) * a_normal;
+    return cc_matProj * cc_matView * vec4(v_worldPos, 1.0);
+  }
+}%
+
+CCProgram fs-other %{
+  precision highp float;
+  #include <legacy/output>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-forward-light>
+  #include <builtin/uniforms/cc-shadow>
+  #include <builtin/uniforms/cc-shadow-map>
+  #include <builtin/functionalities/shadow-map>
+
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  #pragma rate custom_rangedShadowMap pass
+  uniform highp sampler2D custom_rangedShadowMap;
+  #pragma rate RangedShadowInfo pass
+  uniform RangedShadowInfo {
+    vec4 custom_atlasUV;
+    vec4 custom_rangedShadowInfo;
+  };
+
+
+
+ 
+
+
+  // #pragma rate cf pass
+  // uniform ConstantF {
+  //   mat custm_matLightViewProj;
+  // };
+  uniform ConstantF {
+    vec4 _Color;
+  };
+
+
+
+float unpackDepthFromRGBA(vec4 rgba) {
+    return dot(rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0));
+}
+float readShadowDepth(sampler2D map, vec2 uv) {
+  #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+    return unpackDepthFromRGBA(texture(map, uv));
+  #else
+    return texture(map, uv).r;
+  #endif
+}
+
+float sampleShadowPCF(sampler2D shadowMap, vec2 uv, float depth, float texelSize) {
+    float s = 0.0;
+    float r = texelSize * 2.0;
+    s += step(depth, texture(shadowMap, uv + vec2(-r, -r)).r);
+    s += step(depth, texture(shadowMap, uv + vec2( r, -r)).r);
+    s += step(depth, texture(shadowMap, uv + vec2(-r,  r)).r);
+    s += step(depth, texture(shadowMap, uv + vec2( r,  r)).r);
+    s += step(depth, texture(shadowMap, uv + vec2( 0, -r * 2.0)).r);
+    s += step(depth, texture(shadowMap, uv + vec2( 0,  r * 2.0)).r);
+    s += step(depth, texture(shadowMap, uv + vec2(-r * 2.0, 0)).r);
+    s += step(depth, texture(shadowMap, uv + vec2( r * 2.0, 0)).r);
+    return s / 8.0;
+}
+
+
+  float GetAngleAtt (vec3 L, vec3 litDir, float litAngleScale, float litAngleOffset) {
+    float cd = dot(litDir, L);
+    float attenuation = clamp(cd * litAngleScale + litAngleOffset, 0.0, 1.0);
+    return (attenuation * attenuation);
+  }
+
+  float SmoothDistAtt (float distSqr, float invSqrAttRadius) {
+    float factor = distSqr * invSqrAttRadius;
+    float smoothFactor = clamp(1.0 - factor * factor, 0.0, 1.0);
+    return smoothFactor * smoothFactor;
+  }
+
+  float GetDistAtt (float distSqr, float invSqrAttRadius) {
+    float attenuation = 1.0 / max(distSqr, 0.01*0.01);
+    attenuation *= SmoothDistAtt(distSqr, invSqrAttRadius);
+    return attenuation;
+  }
+
+  float GetOutOfRange (vec3 worldPos, vec3 lightPos, vec3 lookAt, vec3 right, vec3 BoundingHalfSizeVS) {
+    vec3 v = vec3(0.0);
+    vec3 up = cross(right, lookAt);
+    worldPos -= lightPos;
+    v.x = dot(worldPos, right);
+    v.y = dot(worldPos, up);
+    v.z = dot(worldPos, lookAt);
+    vec3 result = step(abs(v), BoundingHalfSizeVS);
+    return result.x * result.y * result.z;
+  }
+
+  vec4 frag () {
+    vec3 worldNormal = normalize(v_worldNormal);
+    vec3 outputColor = vec3(0.0);
+
+    float lightType = cc_lightPos[0].w;
+    vec3 lightDir;
+    float atten = 1.0;
+    float shadow = 1.0;
+
+    if (lightType == 4.0) {
+      // 范围平行光：方向固定，距离衰减
+      lightDir = normalize(-cc_lightDir[0].xyz);
+      float dist = distance(cc_lightPos[0].xyz, v_worldPos);
+      float range = cc_lightSizeRangeAngle[0].y;//盒子由灯光节点scale xyz确定
+      if (range > 0.0) atten = clamp(1.0 - dist / range, 0.0, 1.0);
+      if (custom_rangedShadowInfo.x == 1.0) {
+        vec4 shadowPos = cc_matLightViewProj * vec4(v_worldPos, 1.0);
+        vec3 ndc = shadowPos.xyz / shadowPos.w * 0.5 + 0.5;
+        ndc.xy = cc_cameraPos.w == 1.0 ? vec2(ndc.x, 1.0 - ndc.y) : ndc.xy;
+        if (all(greaterThanEqual(ndc, vec3(0.0))) && all(lessThanEqual(ndc, vec3(1.0)))) {
+          shadow = step(ndc.z, readShadowDepth(custom_rangedShadowMap, mix(custom_atlasUV.xy, custom_atlasUV.zw, ndc.xy)));
+        }
+      }
+    } else {
+      vec3 lightVec = cc_lightPos[0].xyz - v_worldPos;
+      lightDir = normalize(lightVec);
+      float distSqr = dot(lightVec, lightVec);
+      float attRadiusSqrInv = 1.0 / max(cc_lightSizeRangeAngle[0].y, 0.01);
+      attRadiusSqrInv *= attRadiusSqrInv;
+      atten = GetDistAtt(distSqr, attRadiusSqrInv);
+      // 聚光锥体衰减
+      if (lightType == 2.0) {
+        float cosInner = max(dot(-cc_lightDir[0].xyz, lightDir), 0.01);
+        float cosOuter = cc_lightSizeRangeAngle[0].z;
+        float litAngleScale = 1.0 / max(0.001, cosInner - cosOuter);
+        float litAngleOffset = -cosOuter * litAngleScale;
+        atten *= GetAngleAtt(lightDir, -cc_lightDir[0].xyz, litAngleScale, litAngleOffset);
+      }
+    }
+
+    float NdotL = max(dot(worldNormal, lightDir), 0.0);
+    // 阴影采样（聚光）
+    if (cc_lightSizeRangeAngle[0].w > 0.0 && lightType == 2.0) {
+      vec4 shadowPos = cc_matLightViewProj * vec4(v_worldPos, 1.0);
+      vec3 ndc = shadowPos.xyz / shadowPos.w * 0.5 + 0.5;
+      ndc.xy = cc_cameraPos.w == 1.0 ? vec2(ndc.x, 1.0 - ndc.y) : ndc.xy;
+      if (all(greaterThanEqual(ndc, vec3(0.0))) && all(lessThanEqual(ndc, vec3(1.0)))) {
+        vec2 custom_atlasUV = mix(custom_atlasUV.xy, custom_atlasUV.zw, ndc.xy);
+        #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+          highp float linearDepth = CCGetLinearDepth(v_worldPos.xyz);
+          shadow = step(linearDepth, readShadowDepth(cc_spotShadowMap, custom_atlasUV));
+        #else
+          shadow = step(ndc.z, readShadowDepth(cc_spotShadowMap, custom_atlasUV));
+        #endif
+        float texelSize = 1.0 / 2024.0; // 跟你的阴影图大小一致
+        // shadow = sampleShadowPCF(cc_spotShadowMap,custom_atlasUV, ndc.z, texelSize*16.);
+         //shadow=custom_test[1].x;
+        
+      }
+    }
+
+
+
+    outputColor += cc_lightColor[0].rgb * _Color.rgb * NdotL * atten * shadow;
+    return CCFragOutput(vec4(outputColor, 1.0));
+  }
+}%
+
+CCProgram shadow-caster-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  #include <builtin/uniforms/cc-shadow>
+
+  in vec3 a_position;
+  in vec3 a_normal;
+
+  out highp vec4 v_localPos;
+  out vec3 v_worldPos;
+  out vec4 v_normal;
+  out highp vec2 v_clip_depth;
+  out highp vec4 v_clipPos;
+  vec4 vert()
+  {
+    vec4 vertex = vec4(a_position, 1.0);
+    v_localPos = vertex;
+    v_worldPos = (cc_matWorld * vertex).xyz;
+    v_normal = normalize((cc_matWorldIT * vec4(a_normal, 0.0)));
+    v_clipPos = cc_matLightViewProj * vec4(v_worldPos.xyz, 1.0);
+    v_clip_depth = v_clipPos.zw;
+    return v_clipPos;
+  }
+}%
+
+CCProgram shadow-caster-fs %{
+  precision highp float;
+  #include <builtin/functionalities/shadow-map>
+
+  in highp vec2 v_clip_depth;
+  in vec3 v_worldPos;
+
+
+  vec4 frag () {
+    vec4 depthColor;
+    vec2 clip_depth=v_clip_depth;
+    highp float clipDepth = clip_depth.x / clip_depth.y * 0.5 + 0.5;
+ 
+
+  #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8 //webgl1才会开启
+      if (IS_SPOT_LIGHT(cc_shadowLPNNInfo.x)) {
+        clipDepth = CCGetLinearDepth(v_worldPos.xyz);
+      }
+  #endif
+
+  #if CC_SHADOWMAP_FORMAT == SHADOWMAP_FORMAT_RGBA8
+    depthColor = packDepthToRGBA(clipDepth);
+  #else
+    depthColor = vec4(clipDepth, 1.0, 1.0, 1.0);
+  #endif
+    return depthColor;
+  }
+}%

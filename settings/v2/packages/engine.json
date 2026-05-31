@@ -15,7 +15,7 @@
             "_value": true
           },
           "gfx-webgl2": {
-            "_value": true
+            "_value": false
           },
           "gfx-webgpu": {
             "_value": false
@@ -153,7 +153,7 @@
           },
           "spine": {
             "_value": true,
-            "_option": "spine-3.8"
+            "_option": "spine-4.2"
           },
           "spine-3.8": {
             "_value": true,
@@ -207,7 +207,6 @@
           "custom-pipeline",
           "dragon-bones",
           "gfx-webgl",
-          "gfx-webgl2",
           "graphics",
           "intersection-2d",
           "light-probe",
@@ -222,7 +221,7 @@
           "profiler",
           "rich-text",
           "skeletal-animation",
-          "spine-3.8",
+          "spine-4.2",
           "terrain",
           "tiled-map",
           "tween",

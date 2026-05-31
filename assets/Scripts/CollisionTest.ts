@@ -1,5 +1,5 @@
 import { _decorator, Component } from 'cc';
-import { ParticleSystem } from './ParticleSystem/ParticleSystem';
+import { ParticleSystem } from '../Package/ParticleSystem/index';
 
 const { ccclass, executeInEditMode } = _decorator;
 

@@ -1,4 +1,5 @@
 import { _decorator, Component, Camera } from 'cc';
+import { refreshOnSceneChange } from '../Package/Tool';
 const { ccclass, property, executeInEditMode, playOnFocus } = _decorator;
 
 /**
@@ -6,6 +7,7 @@ const { ccclass, property, executeInEditMode, playOnFocus } = _decorator;
  * 挂在任意节点上，运行时自动将编辑器场景相机的 transform 复制过来。
  */
 @ccclass('CameraSync')
+@refreshOnSceneChange
 @executeInEditMode(true)
 @playOnFocus(true)
 export class CameraSync extends Component {

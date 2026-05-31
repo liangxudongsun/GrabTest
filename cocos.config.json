@@ -1,0 +1,111 @@
+{
+    "builder": {
+        "platforms": {},
+        "common": {
+            "binGroupConfig": {
+                "threshold": 16,
+                "enable": false
+            },
+            "polyfills": {
+                "asyncFunctions": true
+            },
+            "buildPath": "project://build",
+            "mainBundleCompressionType": "merge_dep",
+            "overwriteProjectSettings": {
+                "includeModules": {
+                    "gfx-webgl2": "inherit-project-setting"
+                }
+            }
+        }
+    },
+    "engine": {
+        "macroConfig": {
+            "CUSTOM_PIPELINE_NAME": "",
+            "ENABLE_FLOAT_OUTPUT": false
+        },
+        "configs": {
+            "defaultConfig": {
+                "name": "默认配置",
+                "flags": {
+                    "LOAD_SPINE_MANUALLY": false,
+                    "LOAD_BULLET_MANUALLY": false
+                },
+                "includeModules": [
+                    "2d",
+                    "3d",
+                    "affine-transform",
+                    "animation",
+                    "audio",
+                    "base",
+                    "custom-pipeline",
+                    "dragon-bones",
+                    "gfx-webgl",
+                    "gfx-webgl2",
+                    "graphics",
+                    "intersection-2d",
+                    "light-probe",
+                    "marionette",
+                    "mask",
+                    "particle",
+                    "particle-2d",
+                    "physics-2d-box2d",
+                    "physics-ammo",
+                    "primitive",
+                    "procedural-animation",
+                    "profiler",
+                    "rich-text",
+                    "skeletal-animation",
+                    "spine-3.8",
+                    "terrain",
+                    "tiled-map",
+                    "tween",
+                    "ui",
+                    "ui-skew",
+                    "video",
+                    "websocket",
+                    "webview"
+                ],
+                "noDeprecatedFeatures": {
+                    "value": false,
+                    "version": ""
+                }
+            }
+        },
+        "physicsConfig": {
+            "collisionGroups": [
+                {
+                    "index": 1,
+                    "name": "Particle1"
+                },
+                {
+                    "index": 2,
+                    "name": "ParticleCollisionBox"
+                }
+            ],
+            "collisionMatrix": {
+                "0": 1,
+                "1": 4,
+                "2": 2
+            }
+        },
+        "customLayers": [
+            {
+                "name": "Watering",
+                "value": 1
+            },
+            {
+                "name": "ParticleCollisionBox",
+                "value": 2
+            }
+        ],
+        "renderPipeline": "c7e748e8-be82-4f6f-b2c0-085b604e40e5"
+    },
+    "script": {
+        "preserveSymlinks": true
+    },
+    "scene": {
+        "tick": true
+    },
+    "version": "1.0.0",
+    "$schema": "./temp/cli/cocos.config.schema.json"
+}

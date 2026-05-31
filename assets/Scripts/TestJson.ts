@@ -1,6 +1,6 @@
 import { _decorator, Component } from 'cc';
 import { EDITOR } from 'cc/env';
-import { CCEManager } from '../Plans/CCEManager';
+import { CCEManager } from '../Plans/index';
 const { ccclass, executeInEditMode } = _decorator;
 
 const JSON_URL = 'db://assets/Json/Test.json';
