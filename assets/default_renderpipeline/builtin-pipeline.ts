@@ -23,7 +23,7 @@
 */
 
 import {
-    assert, CCClass, cclegacy, clamp, director, Game, game, geometry, gfx, Layers, Material, pipeline,
+    assert, CCClass, cclegacy, clamp, director, Game, game, geometry, gfx, Layers, Material, Mat4, Quat, pipeline,
     PipelineEventProcessor, PipelineEventType, ReflectionProbeManager, renderer,
     rendering, Root, sys, Vec2, Vec3, Vec4, warn,
 } from 'cc';
@@ -36,6 +36,7 @@ import {
     PipelineSettings,
 } from './builtin-pipeline-types';
 import { ShadowAtlasManager } from './ShadowAtlasManager';
+import { DynamicShadowSettings } from './Light/DynamicShadowSettings';
 const { AABB, Sphere, intersect } = geometry;
 const { ClearFlagBit, Color, Format, FormatFeatureBit, LoadOp, StoreOp, TextureType, Viewport } = gfx;
 const { scene } = renderer;
@@ -122,7 +123,7 @@ function setupPipelineConfigs(
     configs.supportDepthSample = (ppl.device.getFormatFeatures(Format.DEPTH_STENCIL) & sampleFeature) === sampleFeature;
     // Constants
     const screenSpaceSignY = device.capabilities.screenSpaceSignY;
-    configs.platform.x = configs.isMobile ? 1.0 : 0.0;
+    configs.platform.x = configs.isMobile ? 1.0 : 0.0; 
     configs.platform.w = (screenSpaceSignY * 0.5 + 0.5) << 1 | (device.capabilities.clipSpaceSignY * 0.5 + 0.5);
 }
 
@@ -223,6 +224,8 @@ class ForwardLighting {
     private readonly lights: renderer.scene.Light[] = [];
     // Active spot lights with shadows (Mutually exclusive with `lights`)
     private readonly shadowEnabledSpotLights: renderer.scene.SpotLight[] = [];
+    // Active sphere lights with shadows
+    private readonly shadowEnabledSphereLights: renderer.scene.SphereLight[] = [];
 
     // Internal cached resources
     private readonly _sphere = Sphere.create(0, 0, 0, 1);
@@ -236,6 +239,7 @@ class ForwardLighting {
         // TODO(zhouzhenglong): Make light culling native
         this.lights.length = 0;
         this.shadowEnabledSpotLights.length = 0;
+        this.shadowEnabledSphereLights.length = 0;
         // spot lights
         for (const light of scene.spotLights) {
             if (light.baked) {
@@ -257,7 +261,12 @@ class ForwardLighting {
             }
             Sphere.set(this._sphere, light.position.x, light.position.y, light.position.z, light.range);
             if (intersect.sphereFrustum(this._sphere, frustum)) {
-                this.lights.push(light);
+                const dynShadow = light.node!.getComponent(DynamicShadowSettings);
+                if (dynShadow && dynShadow.shadowEnabled) {
+                    this.shadowEnabledSphereLights.push(light);
+                } else {
+                    this.lights.push(light);
+                }
             }
         }
         // point lights
@@ -290,6 +299,7 @@ class ForwardLighting {
             switch (light.type) {
                 case LightType.SPHERE:
                     queue.name = 'sphere-light';
+                    pass.setVec4('custom_sphereShadowInfo', new Vec4(0, 0, 0, 0));
                     break;
                 case LightType.SPOT:
                     queue.name = 'spot-light';
@@ -322,25 +332,96 @@ class ForwardLighting {
         for (const light of this.shadowEnabledSpotLights) {
             const uuid = light.node!.uuid;
             const view = ShadowAtlasManager.inst.getShadowView(uuid, 'SpotShadowMap', shadowSize);
-           
             if (!view) break;
             const shadowPass = ppl.addRenderPass(atlasSize, atlasSize, 'default');
             shadowPass.name = `SpotLightShadow_${uuid}`;
             shadowPass.addRenderTarget(view.atlasName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
             shadowPass.addDepthStencil(`Depth${view.atlasName}`,  LoadOp.CLEAR, StoreOp.STORE,1);
-            const vp = new Viewport(view.view.x, view.view.y, view.view.width, view.view.height);
-            shadowPass.setViewport(vp);
-            const packing = pipeline.supportsR32FloatTexture(ppl.device) ? 0.0 : 1.0;
-            //this._shadowNFLSInfo.set(0.01, light.range, 0.0, 0.0);
-            //shadowPass.setVec4('cc_shadowNFLSInfo', this._shadowNFLSInfo);
-            //this._shadowLPNNInfo.set(LightType.SPOT, packing, 0.0, 0.0);
-            //shadowPass.setVec4('cc_shadowLPNNInfo', this._shadowLPNNInfo);
+            shadowPass.setViewport(new Viewport(view.view.x, view.view.y, view.view.width, view.view.height));
+
+           
             shadowPass.addQueue(rendering.QueueHint.NONE, 'shadow-caster')
-                .addScene(camera, rendering.SceneFlags.OPAQUE | rendering.SceneFlags.MASK | rendering.SceneFlags.SHADOW_CASTER)
-                .useLightFrustum(light);
+                .addScene(camera, rendering.SceneFlags.OPAQUE | rendering.SceneFlags.MASK | rendering.SceneFlags.SHADOW_CASTER,light);
             ++i;
-            //if (cameraConfigs.enableSingleForwardPass && i >= maxNumShadowMaps) break;
         }
+    }
+
+    public addSphereShadowPasses(
+        ppl: rendering.BasicPipeline,
+        camera: renderer.scene.Camera,
+        cameraConfigs: Readonly<CameraConfigs & ForwardPassConfigs>
+    ): void {
+        const atlasSize = cameraConfigs.sphereShadowAtlasSize;
+        const shadowSize = cameraConfigs.sphereShadowMapSize;
+        // 6个面对应的朝向和上向量
+        const faceDirs: Vec3[] = [
+            new Vec3(1, 0, 0), new Vec3(-1, 0, 0),
+            new Vec3(0, 1, 0), new Vec3(0, -1, 0),
+            new Vec3(0, 0, 1), new Vec3(0, 0, -1),
+        ];
+        const faceUp: Vec3[] = [
+            new Vec3(0, -1, 0), new Vec3(0, -1, 0),
+            new Vec3(0, 0, 1),  new Vec3(0, 0, -1),
+            new Vec3(0, -1, 0), new Vec3(0, -1, 0),
+        ];
+        const projMat = new Mat4();
+        const vpMat = new Mat4();
+        const worldMat = new Mat4();
+        const viewMat = new Mat4();
+        const target = new Vec3();
+        const cap = ppl.device.capabilities;
+        for (const light of this.shadowEnabledSphereLights) {
+            const pos = light.position;
+            const range = light.range;
+            const uuid = light.node!.uuid;
+            // 预分配6个面到同一图集
+            const faceKeys = [0,1,2,3,4,5].map(f => `${uuid}_face${f}`);
+            const views = ShadowAtlasManager.inst.allocBatch(faceKeys, 'SphereShadowMap', shadowSize);
+            if (!views) continue;
+            const atlasName = views[0].atlasName;
+            for (let f = 0; f < 6; f++) {
+                this._computeSphereShadowMatrices(light.node!, range, cap, faceDirs[f], faceUp[f], viewMat, projMat, vpMat);
+                const shadowPass = ppl.addRenderPass(atlasSize, atlasSize, 'default');
+                shadowPass.name = `SphereLightShadow_${uuid}_f${f}`;
+                shadowPass.addRenderTarget(atlasName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
+                shadowPass.addDepthStencil(`Depth${atlasName}`, LoadOp.CLEAR, StoreOp.STORE, 1);
+                shadowPass.setViewport(new Viewport(views[f].view.x, views[f].view.y, views[f].view.width, views[f].view.height));
+                shadowPass.setMat4('cc_matLightViewProj', vpMat);
+                shadowPass.setMat4('cc_matLightView', viewMat);
+                shadowPass.setVec4('cc_shadowNFLSInfo', new Vec4(0.1, range, 0.0, 0.0));
+                shadowPass.setVec4('cc_shadowLPNNInfo', new Vec4(1.0, 0.0, 0.0, 0.0));
+                shadowPass.addQueue(rendering.QueueHint.NONE, 'shadow-caster')
+                    .addScene(camera, rendering.SceneFlags.OPAQUE | rendering.SceneFlags.MASK | rendering.SceneFlags.SHADOW_CASTER);
+            }
+        }
+    }
+
+
+
+    // ========== 球灯阴影矩阵计算（和引擎聚光一致） ==========
+    // faceDir: 目标面朝向（如 +X/-X/+Y/-Y/+Z/-Z）
+    // faceUp: 目标面的上方向
+    private _computeSphereShadowMatrices(
+        node: { getWorldMatrix: () => Mat4 },
+        range: number,
+        cap: { clipSpaceMinZ: number; clipSpaceSignY: number },
+        faceDir: Vec3,
+        faceUp: Vec3,
+        outView: Mat4,
+        outProj: Mat4,
+        outVP: Mat4,
+    ): void {
+        // 四元数：将默认 -Z 朝向旋转到 faceDir
+        const faceQuat = new Quat();
+        Quat.fromViewUp(faceQuat, faceDir, faceUp);
+        const faceRot = new Mat4();
+        Mat4.fromQuat(faceRot, faceQuat);
+        // world = node.world * faceRot（局部空间旋转）
+        const worldMat = node.getWorldMatrix().clone();
+        Mat4.multiply(worldMat, worldMat, faceRot);
+        Mat4.invert(outView, worldMat);
+        Mat4.perspective(outProj, 90, 1.0, 0.001, range, true, cap.clipSpaceMinZ, cap.clipSpaceSignY, 0);
+        Mat4.multiply(outVP, outProj, outView);
     }
 
     //废弃
@@ -379,7 +460,10 @@ class ForwardLighting {
         cameraConfigs?: CameraConfigs,
     ): rendering.BasicRenderPassBuilder|undefined {
         this._addLightQueues(camera, pass);
-        let count=0;
+        const spotShadowCount = this.shadowEnabledSpotLights.length;
+        const sphereShadowCount = this.shadowEnabledSphereLights.length;
+        const totalShadowPasses = spotShadowCount + sphereShadowCount;
+        let shadowPassCount = 0;
 
         for (const light of this.shadowEnabledSpotLights) {
             const uuid = light.node!.uuid;
@@ -394,27 +478,85 @@ class ForwardLighting {
             _pass.addDepthStencil(depthStencilName, LoadOp.LOAD, StoreOp.STORE);
             _pass.addTexture(view.atlasName, 'cc_spotShadowMap');
             _pass.setVec4('custom_atlasUV', view.uv);
+          
             const queue = _pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
             queue.addScene(
                 camera,
                 rendering.SceneFlags.BLEND,
                 light,
             );
-
-           count++;
-           if(count=== this.shadowEnabledSpotLights.length){
+           
+           shadowPassCount++;
+           if(shadowPassCount === totalShadowPasses){
             pass=_pass;
            }
+        }
 
-            
+        for (const light of this.shadowEnabledSphereLights) {
+            const uuid = light.node!.uuid;
+            const shadowSize = cameraConfigs.sphereShadowMapSize;
+            const pos = light.position;
+            const range = light.range;
 
-            
+            // 6个面（caster已用allocBatch确保在同一图集，这里从缓存取）
+            const faceUVs: Vec4[] = [];
+            let atlasName = '';
+            let allFacesFound = true;
+            for (let f = 0; f < 6; f++) {
+                const view = ShadowAtlasManager.inst.getShadowView(`${uuid}_face${f}`, 'SphereShadowMap', shadowSize);
+                if (!view) { allFacesFound = false; break; }
+                if (f === 0) atlasName = view.atlasName;
+                else if (view.atlasName !== atlasName) { allFacesFound = false; break; }
+                faceUVs.push(view.uv);
+            }
+            if (!allFacesFound) break;
+
+            let _pass = ppl.addRenderPass(width, height, 'default');
+            _pass.name = 'SphereLightWithShadowMap';
+            _pass.setViewport(viewport);
+            _pass.addRenderTarget(colorName, LoadOp.LOAD, StoreOp.STORE);
+            _pass.addDepthStencil(depthStencilName, LoadOp.LOAD, StoreOp.STORE);
+            _pass.addTexture(atlasName, 'custom_sphereShadowMap');
+            _pass.setVec4('custom_sphereShadowInfo', new Vec4(1, 0, 0, 0));
+            // 传入6个面的图集UV（数组常量索引）
+            for (let f = 0; f < 6; f++) {
+                _pass.setVec4('custom_sphereFaceUV', faceUVs[f], f);
+            }
+
+            // 计算并传入6个面的VP矩阵（数组常量索引）
+            const faceDirs: Vec3[] = [
+                new Vec3(1, 0, 0), new Vec3(-1, 0, 0),
+                new Vec3(0, 1, 0), new Vec3(0, -1, 0),
+                new Vec3(0, 0, 1), new Vec3(0, 0, -1),
+            ];
+            const faceUp: Vec3[] = [
+                new Vec3(0, -1, 0), new Vec3(0, -1, 0),
+                new Vec3(0, 0, 1),  new Vec3(0, 0, -1),
+                new Vec3(0, -1, 0), new Vec3(0, -1, 0),
+            ];
+            const cap = ppl.device.capabilities;
+            const viewMat = new Mat4();
+            const projMat = new Mat4();
+            const vpMat = new Mat4();
+            for (let f = 0; f < 6; f++) {
+                this._computeSphereShadowMatrices(light.node!, range, cap, faceDirs[f], faceUp[f], viewMat, projMat, vpMat);
+                _pass.setMat4('custom_sphereFaceVP', vpMat, f);
+            }
+            //_pass.setVec4('cc_shadowNFLSInfo', new Vec4(0.1, range, 0.0, 0.0));
+
+            const queue = _pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
+            queue.addScene(camera, rendering.SceneFlags.BLEND,light);
+
+            shadowPassCount++;
+            if (shadowPassCount === totalShadowPasses) {
+                pass = _pass;
+            }
         }
         return pass;
     }
 
     public isMultipleLightPassesNeeded(): boolean {
-        return this.shadowEnabledSpotLights.length > 0;
+        return this.shadowEnabledSpotLights.length > 0 || this.shadowEnabledSphereLights.length > 0;
     }
 }
 
@@ -643,6 +785,24 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
                 );
                 ShadowAtlasManager.inst.addAtlas('SpotShadowMap',i,id,size);
             }
+
+            // Sphere-light shadow maps
+            const sphereSize=cameraConfigs.sphereShadowAtlasSize;
+            for (let i = 0; i !== count; ++i) {
+                ppl.addRenderTarget(
+                    `SphereShadowMap_${i}_${id}`,
+                    pplConfigs.shadowMapFormat,
+                    pplConfigs.shadowMapSize.x,
+                    pplConfigs.shadowMapSize.y,
+                );
+                ppl.addDepthStencil(
+                    `DepthSphereShadowMap_${i}_${id}`,
+                    Format.DEPTH_STENCIL,
+                    pplConfigs.shadowMapSize.x,
+                    pplConfigs.shadowMapSize.y,
+                );
+                ShadowAtlasManager.inst.addAtlas('SphereShadowMap',i,id,sphereSize);
+            }
         }
     }
     setup(
@@ -695,6 +855,8 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             // TODO(zhouzhenglong): Relex this limitation.
             this.forwardLighting.addSpotlightShadowPasses(
                 ppl, camera, pplConfigs.mobileMaxSpotLightShadowMaps,cameraConfigs);
+            this.forwardLighting.addSphereShadowPasses(
+                ppl, camera, cameraConfigs);
         }
         
 

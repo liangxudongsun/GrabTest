@@ -164,6 +164,40 @@ export class ShadowAtlasManager {
         return null;
     }
 
+    allocBatch(keys: string[], prefix: string, shadowSize: number): AtlasView[] | null {
+        for (const [name, atlas] of this._atlases) {
+            if (!name.startsWith(prefix)) continue;
+            const views: AtlasView[] = [];
+            let ok = true;
+            const tempKeys: string[] = [];
+            for (const key of keys) {
+                const uv = atlas.alloc(key, shadowSize);
+                if (!uv) { ok = false; break; }
+                tempKeys.push(key);
+                views.push({
+                    atlasName: name,
+                    uv,
+                    view: {
+                        x: Math.round(uv.x * atlas.size),
+                        y: Math.round(uv.y * atlas.size),
+                        width: Math.round((uv.z - uv.x) * atlas.size),
+                        height: Math.round((uv.w - uv.y) * atlas.size),
+                    },
+                });
+            }
+            if (ok) {
+                for (let i = 0; i < keys.length; i++) {
+                    this._lightViewMap.set(keys[i], views[i]);
+                    this._lightOrderMap.set(keys[i], this._nextOrder++);
+                }
+                return views;
+            }
+            // Rollback
+            for (const k of tempKeys) atlas.release(k);
+        }
+        return null;
+    }
+
     removeShadow(lightUuid: string): void {
         const info = this._lightViewMap.get(lightUuid);
         if (info) {
