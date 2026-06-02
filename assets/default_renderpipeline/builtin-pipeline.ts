@@ -576,7 +576,6 @@ export interface ForwardPassConfigs {
     enableFrostedGlass:boolean;
     
     enableBlurPass:boolean;
-    enableSceneBloom:boolean;
     enableBufferBloom:boolean;
     enableCopyDepth:boolean;
     enableBasePass:boolean;
@@ -638,7 +637,6 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         //QuadPass
         cameraConfigs.enableBlurPass=cameraConfigs.settings.blurPass.enabled;
 
-        cameraConfigs.enableSceneBloom=cameraConfigs.settings.sceneBloomPass.enabled;
         cameraConfigs.enableBufferBloom=cameraConfigs.settings.bufferBloomPass.enabled;
         cameraConfigs.enableCopyDepth=cameraConfigs.settings.copyDepthPass.enabled;
         cameraConfigs.enableBasePass=cameraConfigs.settings.basePass.enabled;
@@ -716,9 +714,6 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
           
         }
 
-        if(cameraConfigs.enableSceneBloom){
-            ppl.addRenderTarget(`SceneBloomMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
-        }
 
         if(cameraConfigs.enableBufferBloom){
             ppl.addRenderTarget(`BufferBloomMap_${id}`,Format.RGBA32F,width,height,rendering.ResourceResidency.MANAGED)
@@ -1016,13 +1011,9 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             viewport.top=0;
             viewport.width=width;
             viewport.height=height;
-            let frmaMap= `FrameMap_${id}`;
-            if(cameraConfigs.enableSceneBloom){
-                frmaMap=`SceneBloomMap_${id}`
-            }
             const pass1=ppl.addRenderPass(width,height,'default');
             pass1.addRenderTarget(`TempBlurMap1${i}`,LoadOp.LOAD,StoreOp.STORE);
-            pass1.addTexture(frmaMap,'inputTex');
+            pass1.addTexture(`FrameMap_${id}`,'inputTex');
             pass1.setVec4('BlurAmount',new Vec4(blurAmount/this._blurSizes[i].x,0,0,0));
             pass1.setViewport(viewport);
             pass1.addQueue(rendering.QueueHint.NONE,'quad-caster')

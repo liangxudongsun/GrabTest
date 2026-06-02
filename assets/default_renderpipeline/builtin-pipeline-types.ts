@@ -487,48 +487,6 @@ export function fillRequiredBufferBloomPass(value: BufferBloomPass): void {
     }
 }
 
-export interface SceneBloomPass {
-    enabled: boolean;
-    threshold: number;
-    intensity: number;
-    bloomTintR: number;
-    bloomTintG: number;
-    bloomTintB: number;
-    [name: string]: unknown;
-}
-
-export function makeSceneBloomPass(): SceneBloomPass {
-    return {
-        enabled: false,
-        threshold: 0.8,
-        intensity: 1.0,
-        bloomTintR: 1.0,
-        bloomTintG: 1.0,
-        bloomTintB: 1.0,
-    };
-}
-
-export function fillRequiredSceneBloomPass(value: SceneBloomPass): void {
-    if (value.enabled === undefined) {
-        value.enabled = false;
-    }
-    if (value.threshold === undefined) {
-        value.threshold = 0.8;
-    }
-    if (value.intensity === undefined) {
-        value.intensity = 1.0;
-    }
-    if (value.bloomTintR === undefined) {
-        value.bloomTintR = 1.0;
-    }
-    if (value.bloomTintG === undefined) {
-        value.bloomTintG = 1.0;
-    }
-    if (value.bloomTintB === undefined) {
-        value.bloomTintB = 1.0;
-    }
-}
-
 export interface CopyDepthPass {
     enabled: boolean;
     [name: string]: unknown;
@@ -561,7 +519,6 @@ export interface PipelineSettings {
     readonly blurPass: BlurPass;
     readonly bufferBloomPass: BufferBloomPass;
     readonly blitPass: BlitPass;
-    readonly sceneBloomPass: SceneBloomPass;
     readonly copyDepthPass: CopyDepthPass;
     [name: string]: unknown;
 }
@@ -582,7 +539,6 @@ export function makePipelineSettings(): PipelineSettings {
         blurPass: makeBlurPass(),
         bufferBloomPass: makeBufferBloomPass(),
         blitPass: makeBlitPass(),
-        sceneBloomPass: makeSceneBloomPass(),
         copyDepthPass: makeCopyDepthPass(),
     };
 }
@@ -659,12 +615,6 @@ export function fillRequiredPipelineSettings(value: PipelineSettings): void {
         (value.blitPass as BlitPass) = makeBlitPass();
     } else {
         fillRequiredBlitPass(value.blitPass);
-    }
-
-    if (!value.sceneBloomPass) {
-        (value.sceneBloomPass as SceneBloomPass) = makeSceneBloomPass();
-    } else {
-        fillRequiredSceneBloomPass(value.sceneBloomPass);
     }
 
     if (!value.copyDepthPass) {
