@@ -32,6 +32,7 @@ import { DEBUG, EDITOR } from 'cc/env';
 
 import {
     BloomType,
+    BufferBloomPass,
     makePipelineSettings,
     PipelineSettings,
 } from './builtin-pipeline-types';
@@ -542,8 +543,6 @@ class ForwardLighting {
                 this._computeSphereShadowMatrices(light.node!, range, cap, faceDirs[f], faceUp[f], viewMat, projMat, vpMat);
                 _pass.setMat4('custom_sphereFaceVP', vpMat, f);
             }
-            //_pass.setVec4('cc_shadowNFLSInfo', new Vec4(0.1, range, 0.0, 0.0));
-
             const queue = _pass.addQueue(rendering.QueueHint.BLEND, 'forward-add');
             queue.addScene(camera, rendering.SceneFlags.BLEND,light);
 
@@ -888,45 +887,28 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             !cameraConfigs.enableMSAA,
             cameraConfigs.enableStoreSceneDepth ? StoreOp.STORE : StoreOp.DISCARD);
 
-       
-         if(cameraConfigs.enableBufferBloom){
-          
-                this._addBufferBloomPass(ppl,cameraConfigs,camera,context);
-            
+         if(cameraConfigs.enableCopyDepth){
+            this._addCopyDepthPass(ppl, cameraConfigs, camera, context,id);
         }
-
-
-        if(cameraConfigs.enableCopyDepth){
-          
-                this._addCopyDepthPass(ppl, cameraConfigs, camera, context,id);
-            
-        }
-
-
-        
-         
-
+      
         if(cameraConfigs.enableGrab){
-          
-                if(!cameraConfigs.enableBufferBloom){
-                   this._addCopyFrameMapToScenePass(ppl, cameraConfigs, camera, context,id);
-                
-             
-              this._addGrabPass(ppl,cameraConfigs,camera,context);
-            }
+            this._addCopyFrameMapToScenePass(ppl, cameraConfigs, camera, context,id);
+            this._addGrabPass(ppl,cameraConfigs,camera,context);
         }
 
-
+        if(cameraConfigs.enableBufferBloom){
+            const bloomSettings = cameraConfigs.settings.bufferBloomPass;
+            this._addBufferBloomPass(ppl,cameraConfigs,camera,context,bloomSettings);
+        }
 
        
+
+
+
 
       
 
-        if(cameraConfigs.enableSceneBloom){
-           
-                this._addSceneBloomPass(ppl,cameraConfigs,camera,context)
-            
-        }
+       
 
         
         if(cameraConfigs.enableBlurPass){
@@ -976,36 +958,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
 
     }
     
-    private _addSceneBloomPass(
-        ppl: rendering.BasicPipeline,
-        cameraConfigs:CameraConfigs,
-        camera:renderer.scene.Camera,
-        contex:PipelineContext 
-    ): rendering.BasicRenderPassBuilder {
-        const id=camera.window.renderWindowId;
-        const size=new Vec2(camera.window.width,
-                            camera.window.height)
-        const pass=ppl.addRenderPass(size.x,size.y,'default');
-        pass.name='SceneBloomThresholdPass';
-        pass.addRenderTarget(`SceneBloomMap_${id}`,LoadOp.LOAD,StoreOp.STORE,new Color(0,0,0,1));
-        pass.addTexture(`FrameMap_${id}`, 'grabTex');
-        pass.setFloat('threshold',cameraConfigs.settings.sceneBloomPass.threshold);
-        pass.setFloat('intensity',cameraConfigs.settings.sceneBloomPass.intensity);
-         const r=cameraConfigs.settings.sceneBloomPass.bloomTintR
-         const g=cameraConfigs.settings.sceneBloomPass.bloomTintG
-         const b=cameraConfigs.settings.sceneBloomPass.bloomTintB
-        pass.setVec4('bloomTint',new Vec4(r, g, b,1));
-        const viewport=this._viewport;
-        viewport.left=0;
-        viewport.top=0;
-        viewport.width=size.x;
-        viewport.height=size.y;
-        pass.setViewport(viewport);
-        pass.addQueue(rendering.QueueHint.NONE,'sceneBloom-caster')
-        .addScene(camera,rendering.SceneFlags.OPAQUE);
-        return pass;
-      
-    }
+  
     
 
 
@@ -1098,8 +1051,6 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
             pass4.setViewport(viewport);
             pass4.addQueue(rendering.QueueHint.NONE,'quad-caster')
             .addScene(camera,rendering.SceneFlags.OPAQUE);
-
-            
         }
 
 
@@ -1142,22 +1093,6 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         camera: renderer.scene.Camera,
         context: PipelineContext,id:number
     ): rendering.BasicRenderPassBuilder | undefined {
-       
-        // const size = new Vec2(camera.window.width, camera.window.height);
-        // const pass = ppl.addRenderPass(size.x, size.y, 'default');
-        // pass.name = 'CopyDepthPass';
-        // pass.addRenderTarget(`DepthCopyMap_${id}`, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-        // //pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE, new Color(1, 1, 1, 1));
-        // pass.addTexture(context.depthStencilName, 'depthTex');
-        // const viewport = this._viewport;
-        // viewport.left = 0;
-        // viewport.top = 0;
-        // viewport.width = size.x;
-        // viewport.height = size.y;
-        // pass.setViewport(viewport);
-        // pass.addQueue(rendering.QueueHint.NONE,'depthCopy-caster')
-        //     .addScene(camera,rendering.SceneFlags.OPAQUE)
-        // return pass;
         ppl.addCopyPass([new rendering.CopyPair(context.depthStencilName,`DepthCopyMap_${id}`)])
         return
     }
@@ -1168,22 +1103,6 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         camera: renderer.scene.Camera,
         context: PipelineContext,id:number
     ): rendering.BasicRenderPassBuilder | undefined {
-        // const size = new Vec2(camera.window.width, camera.window.height);
-        // const pass = ppl.addRenderPass(size.x, size.y, 'default');                 
-        // pass.name = 'CopyFrameMapToScenePass';
-        // pass.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
-        // //pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
-        // pass.addTexture(`FrameMap_${id}`, 'grabTex');
-        // const viewport = this._viewport;
-        // viewport.left = 0;
-        // viewport.top = 0;
-        // viewport.width = size.x;
-        // viewport.height = size.y;
-        // pass.setViewport(viewport);
-        // pass.addQueue(rendering.QueueHint.OPAQUE,'screenCopy-caster')
-        //     .addScene(camera,rendering.SceneFlags.OPAQUE)
-        // return pass;
-
          ppl.addCopyPass([new rendering.CopyPair(`FrameMap_${id}`,context.colorName)])
         return
     }
@@ -1525,12 +1444,7 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
                .addLightPasses(`FrameMap_${id}`, depthStencilName, depthStencilStoreOp,
                id, width, height, camera, this._viewport, ppl, pass, cameraConfigs);
         }
-     
-
-        
         // Forward Lighting (Additive Lights)
-       
-
         return pass;
     }
     private _buildForwardMainLightPass(
@@ -1642,16 +1556,20 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         ppl: rendering.BasicPipeline,
         cameraConfigs: CameraConfigs,
         camera: renderer.scene.Camera,
-        context: PipelineContext
+        context: PipelineContext,
+        settings: BufferBloomPass,
     ): rendering.BasicRenderPassBuilder {
         const id = camera.window.renderWindowId;
         const size = new Vec2(camera.window.width, camera.window.height);
-        const settings = cameraConfigs.settings.bufferBloomPass;
+        const material=settings.material;
+        
+     
+
 
         const pass = ppl.addRenderPass(size.x, size.y, 'default');
         pass.name = 'BufferBloomPass';
 
-        pass.addRenderTarget(`BufferBloomMap_${id}`, LoadOp.LOAD, StoreOp.STORE);
+        pass.addRenderTarget(`BufferBloomMap_${id}`, LoadOp.CLEAR, StoreOp.STORE);
         pass.addDepthStencil(context.depthStencilName, LoadOp.LOAD, StoreOp.STORE);
         const viewport = this._viewport;
         viewport.left = 0;
@@ -1662,28 +1580,35 @@ export class  BuiltinForwardPassBuilder implements rendering.PipelinePassBuilder
         pass.addQueue(rendering.QueueHint.NONE,'bufferBloom-caster')
         .addScene(camera,rendering.SceneFlags.OPAQUE);
 
-        //使用全屏面片
-        const pass1 = ppl.addRenderPass(size.x, size.y, 'default');
+        // //使用全屏面片
+        //  combineGrabPass.addRenderTarget(outputRadianceName, LoadOp.CLEAR, StoreOp.STORE, this._clearColorTransparentBlack);
+        // combineGrabPass.addTexture(inputRadiance, 'screenTex');
+        // combineGrabPass
+        //     .addQueue(rendering.QueueHint.OPAQUE)
+        //     .addCameraQuad(camera, material, 0); // addCameraQuad will set camera related UBOs
+        
+       
+        const pass1 = ppl.addRenderPass(size.x, size.y, 'bufferBloomBlur');
         pass1.name = 'BufferBloomBlurPass';
 
         pass1.addRenderTarget(`BufferBloomBlurMap_${id}`, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
         pass1.addTexture(`BufferBloomMap_${id}`,`bloomMap`);
         pass1.setViewport(viewport);
-        pass1.addQueue(rendering.QueueHint.NONE,'bufferBloomBlur-caster')
-        .addScene(camera,rendering.SceneFlags.OPAQUE);
+        pass1.addQueue(rendering.QueueHint.OPAQUE)
+        .addCameraQuad(camera, material, 0);
      
 
-         const pass2 = ppl.addRenderPass(size.x, size.y, 'default');
+         const pass2 = ppl.addRenderPass(size.x, size.y, 'bufferBloomCombine');
         pass2.name = 'BufferBloomCombinePass';
 
         pass2.addRenderTarget(context.colorName, LoadOp.CLEAR, StoreOp.STORE,new Color(1,1,1,1));
         pass2.addTexture(`BufferBloomMap_${id}`,`bloomMap`); 
         pass2.addTexture(`BufferBloomBlurMap_${id}`,`bloomBlurMap`);
-        pass2.addTexture(`FrameMap_${id}`,'FrameMap');//一传入就报错
+        pass2.addTexture(`FrameMap_${id}`,'FrameMap');
         
         pass2.setViewport(viewport);
-        pass2.addQueue(rendering.QueueHint.NONE,'bufferBloomCombine-caster')
-        .addScene(camera,rendering.SceneFlags.OPAQUE);
+        pass2.addQueue(rendering.QueueHint.OPAQUE)
+        .addCameraQuad(camera, material, 1);
         return pass2;
 
     

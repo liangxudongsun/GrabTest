@@ -15,18 +15,7 @@ CCEffect %{
         depthTest: false
         depthWrite: false
 
-    - vert: depthCopy-vs:vert
-      frag: depthCopy-fs:frag
-      phase: depthCopy-caster
-      depthStencilState:
-        depthTest: false
-        depthWrite: false
-    - vert: depthCopy-vs:vert
-      frag: screenCopy-fs:frag
-      phase: screenCopy-caster
-      depthStencilState:
-        depthTest: false
-        depthWrite: false
+  
 }%
 
 CCProgram bufferBloom-vs %{

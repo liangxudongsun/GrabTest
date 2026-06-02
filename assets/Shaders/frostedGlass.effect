@@ -2,12 +2,6 @@ CCEffect %{
   techniques:
   - name: transparent
     passes:
-    - vert: sceneBloom-vs:vert
-      frag: sceneBloom-fs:frag
-      phase: sceneBloom-caster
-      depthStencilState:
-        depthTest: false
-        depthWrite: false
     - vert: blur-vs:vert
       frag: blur-fs:frag
       phase: quad-caster

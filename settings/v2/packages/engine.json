@@ -15,7 +15,7 @@
             "_value": true
           },
           "gfx-webgl2": {
-            "_value": false
+            "_value": true
           },
           "gfx-webgpu": {
             "_value": false
@@ -207,6 +207,7 @@
           "custom-pipeline",
           "dragon-bones",
           "gfx-webgl",
+          "gfx-webgl2",
           "graphics",
           "intersection-2d",
           "light-probe",

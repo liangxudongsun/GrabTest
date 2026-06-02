@@ -810,6 +810,20 @@ export class BuiltinPipelineSettings extends Component {
         return this._settings.bufferBloomPass.bloomTintB;
     }
 
+    @property({
+        tooltip: '自定义材质（可选）',
+        group: { id: 'BufferBloomPass', name: 'BufferBloomPass', style: 'section' },
+        type: Material,
+    })
+    set bufferBloomMaterial(value: Material) {
+        if (this._settings.bufferBloomPass.material === value) return;
+        this._settings.bufferBloomPass.material = value;
+        if (EDITOR) this._tryEnableEditorPreview();
+    }
+    get bufferBloomMaterial(): Material {
+        return this._settings.bufferBloomPass.material!;
+    }
+
     // SceneBloomPass
     @property({
         group: { id: 'SceneBloomPass', name: 'SceneBloomPass', style: 'section' },

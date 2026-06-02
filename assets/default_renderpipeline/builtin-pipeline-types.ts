@@ -439,6 +439,7 @@ export interface BufferBloomPass {
     bloomTintR: number;
     bloomTintG: number;
     bloomTintB: number;
+    /* refcount */ material: Material | null;
     [name: string]: unknown;
 }
 
@@ -452,6 +453,7 @@ export function makeBufferBloomPass(): BufferBloomPass {
         bloomTintR: 1.0,
         bloomTintG: 1.0,
         bloomTintB: 1.0,
+        material: null,
     };
 }
 
@@ -479,6 +481,9 @@ export function fillRequiredBufferBloomPass(value: BufferBloomPass): void {
     }
     if (value.bloomTintB === undefined) {
         value.bloomTintB = 1.0;
+    }
+    if (value.material === undefined) {
+        value.material = null;
     }
 }
 
